@@ -200,6 +200,8 @@ func main() {
 	}
 	// +kubebuilder:scaffold:builder
 
+	signalCtx := ctrl.SetupSignalHandler()
+
 	if enableHA {
 		//nolint:staticcheck // old events API still widely used by operators
 		rec := mgr.GetEventRecorderFor("tsdb-operator")
@@ -210,7 +212,7 @@ func main() {
 		}
 	}
 	if enableBackup {
-		awsCfg, err := awsconfig.LoadDefaultConfig(ctrl.SetupSignalHandler(), awsconfig.WithRegion(s3Region))
+		awsCfg, err := awsconfig.LoadDefaultConfig(signalCtx, awsconfig.WithRegion(s3Region))
 		if err != nil {
 			setupLog.Error(err, "Failed to load AWS config")
 			os.Exit(1)
@@ -238,7 +240,7 @@ func main() {
 	}
 
 	setupLog.Info("Starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(signalCtx); err != nil {
 		setupLog.Error(err, "Failed to run manager")
 		os.Exit(1)
 	}
