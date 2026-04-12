@@ -6,6 +6,49 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-04-13
+
+Hardening release. Every v0.1.0 feature that existed in the codebase but
+was never actually executed end-to-end has now been run against a real
+kind cluster — with backups going to MinIO and the REST API served over
+cert-manager-issued TLS. Several real bugs were found and fixed as a
+direct result of this exercise.
+
+### Added
+
+- REST API wired into the manager process (`--enable-api`,
+  `--api-address`, `--api-namespace`, `--api-tls-cert-dir`). It was shipped
+  as a package in 0.1.0 but never started by `cmd/main.go`.
+- TLS support for the REST API via a mounted cert directory, plus Helm
+  chart plumbing for cert-manager: `Issuer` (self-signed default) and
+  `Certificate` resources with in-cluster DNS SANs.
+- Helm chart: `api` Service, `api.tls.enabled` / `api.tls.certManager.*`
+  values, and `s3.credentialsSecretName` for wiring backup credentials.
+- End-to-end test suite for `PrometheusCluster` lifecycle (create, scale,
+  backup-toggle, finalizer) in `test/e2e/`, plus an `E2E_SKIP_SETUP=true`
+  escape hatch for running specs against an already-deployed operator.
+- Restore runbook at `docs/RESTORE.{en,zh}.md`, verified against MinIO.
+
+### Fixed
+
+- `cmd/main.go` called `ctrl.SetupSignalHandler()` twice, causing
+  `panic: close of closed channel` at startup. The handler is now set up
+  once and shared between the AWS config load and `mgr.Start`.
+- Reconciler only updated the `StatefulSet` template when `spec.replicas`
+  changed, so toggling `spec.backup.enabled` did not flip the container
+  args. It now compares the full pod template via
+  `equality.Semantic.DeepEqual` and patches on any drift.
+- Backup `Scheduler.Start` was registered as a manager runnable but no
+  cluster was ever registered with it, so cron never fired. The scheduler
+  is now exposed to the reconciler via a `BackupRegistrar` interface and
+  registered on every reconcile when `spec.backup.enabled` is true.
+- Scaled-cluster phase is now consistently `Scaling` when replicas change
+  (the Milestone-1 change had collapsed it to `Provisioning` under
+  envtest, which the regression test caught).
+
+[Unreleased]: https://github.com/MerlionOS/tsdb-operator/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.2.0
+
 ## [0.1.0] — 2026-04-13
 
 First tagged release. The operator reconciles a `PrometheusCluster` CRD
@@ -41,5 +84,4 @@ on kind.
   audit, REST API, and `renderConfig`.
 - CI: lint (golangci-lint), unit tests, envtest, e2e on kind.
 
-[Unreleased]: https://github.com/MerlionOS/tsdb-operator/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.1.0
