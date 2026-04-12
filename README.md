@@ -18,6 +18,10 @@ single declarative CRD (`PrometheusCluster`) and a small control plane.
 >
 > How does this compare to Thanos and VictoriaMetrics? See
 > [`docs/COMPARISON.en.md`](docs/COMPARISON.en.md) ([中文](docs/COMPARISON.zh.md)).
+>
+> Broader TSDB landscape (Prometheus ecosystem + general-purpose TSDBs):
+> [`docs/TSDB-LANDSCAPE.en.md`](docs/TSDB-LANDSCAPE.en.md)
+> ([中文](docs/TSDB-LANDSCAPE.zh.md)).
 
 ## Architecture
 

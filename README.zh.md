@@ -10,6 +10,10 @@ English: [README.md](README.md)
 >
 > 和 Thanos、VictoriaMetrics 的对比见
 > [`docs/COMPARISON.zh.md`](docs/COMPARISON.zh.md)（[English](docs/COMPARISON.en.md)）。
+>
+> 更广的时序数据库横向对比（Prometheus 生态 + 通用 TSDB）：
+> [`docs/TSDB-LANDSCAPE.zh.md`](docs/TSDB-LANDSCAPE.zh.md)
+> （[English](docs/TSDB-LANDSCAPE.en.md)）。
 
 ## 它解决什么问题
 
