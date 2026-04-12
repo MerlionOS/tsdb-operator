@@ -1,4 +1,4 @@
-# tsdb-operator vs Thanos vs VictoriaMetrics（中文版）
+# tsdb-operator vs prometheus-operator vs Thanos vs VictoriaMetrics（中文版）
 
 English version: [COMPARISON.en.md](COMPARISON.en.md)
 
@@ -6,18 +6,18 @@ English version: [COMPARISON.en.md](COMPARISON.en.md)
 
 ## 一句话总结
 
-| | tsdb-operator | Thanos | VictoriaMetrics |
-|---|---|---|---|
-| **它是什么** | 管理**原生 Prometheus** 集群的 Kubernetes Operator | 架在 Prometheus **之上**的水平扩展 + 长期存储层 | 独立的时序数据库（单机版 + 集群版） |
-| **主要产物** | `PrometheusCluster` CRD + 控制器 | Sidecar / Store Gateway / Query / Compactor / Receiver | `vmstorage` / `vminsert` / `vmselect`（或 `victoria-metrics` 单二进制） |
-| **存储模型** | Prometheus 本地 TSDB + PVC，定时 snapshot 到 S3 | Prometheus 本地 TSDB + 对象存储保存历史 block | 自研 TSDB 格式，本地磁盘（集群版跨 `vmstorage` 分片） |
-| **查询语言** | PromQL（Prometheus 原生） | PromQL（通过 Thanos Query） | MetricsQL（PromQL 兼容的超集） |
-| **高可用策略** | 多副本 StatefulSet + `/-/ready` 探活 + 自动剔除故障 Pod | 双副本 Prometheus + Thanos Query 去重 | `-replicationFactor` 跨 `vmstorage` 复制写入 |
-| **全局视图** | 不内置（单集群场景） | ✅ Thanos Query 扇出聚合多个 Prometheus | ✅ 集群版 + `vmagent` remote_write |
-| **备份** | 一等公民：CRD 里直接写 cron → S3/MinIO | 隐式（历史 block 本就在对象存储中） | 专用工具 `vmbackup` / `vmrestore` |
-| **审计日志** | 内置（PostgreSQL） | 无 | 无 |
-| **管理 API** | gin REST：集群 CRUD + 备份 + 审计查询 | 无（靠 kubectl / Helm） | 无（靠 kubectl / Helm） |
-| **许可证** | Apache 2.0 | Apache 2.0 | Apache 2.0 |
+| | tsdb-operator | prometheus-operator | Thanos | VictoriaMetrics |
+|---|---|---|---|---|
+| **它是什么** | 聚焦**集群生命周期**（开通 / HA / 备份 / 审计）的 Operator | 聚焦 Prometheus 与 Alertmanager **抓取配置声明化**的 Operator | 架在 Prometheus **之上**的水平扩展 + 长期存储层 | 独立时序数据库（单机版 + 集群版） |
+| **主要产物** | `PrometheusCluster` CRD + 控制器 | `Prometheus` / `Alertmanager` / `ServiceMonitor` / `PodMonitor` / `PrometheusRule` / `Probe` 等 CRD | Sidecar / Store Gateway / Query / Compactor / Receiver | `vmstorage` / `vminsert` / `vmselect`（或单二进制） |
+| **存储模型** | Prometheus 本地 TSDB + PVC，定时 snapshot 到 S3 | Prometheus 本地 TSDB + PVC（存储留给用户解决） | Prometheus 本地 TSDB + 对象存储存历史 block | 自研 TSDB 格式，本地磁盘（集群版分片） |
+| **查询语言** | PromQL | PromQL | PromQL（通过 Thanos Query） | MetricsQL（PromQL 兼容超集） |
+| **高可用策略** | 多副本 StatefulSet + `/-/ready` 探活 + 剔除故障 Pod | `spec.replicas ≥ 2`，去重留给 Thanos / 远端存储 | 双副本 Prometheus + Thanos Query 去重 | `-replicationFactor` 跨 `vmstorage` |
+| **全局视图** | 不内置 | 不内置（配合 Thanos / VM） | ✅ Thanos Query 扇出 | ✅ 集群版 + `vmagent` remote_write |
+| **备份** | 一等公民：CRD 直接写 cron → S3/MinIO | 无 | 隐式（历史 block 在对象存储） | 专用工具 `vmbackup` / `vmrestore` |
+| **审计日志** | 内置（PostgreSQL） | 无 | 无 | 无 |
+| **管理 API** | gin REST：集群 CRUD + 备份 + 审计 | 无（kubectl / Helm） | 无（kubectl / Helm） | 无（kubectl / Helm） |
+| **许可证** | Apache 2.0 | Apache 2.0 | Apache 2.0 | Apache 2.0 |
 
 ## tsdb-operator 的实际定位
 
@@ -34,6 +34,18 @@ English version: [COMPARISON.en.md](COMPARISON.en.md)
 - 需要一个**管理用的 REST API**，给控制面 / 内部 UI 用。
 - 单集群 / 单 region 规模，不需要全局查询。
 - 合规要求留下每一次运维操作的审计轨迹。
+
+### 选 prometheus-operator 的场景
+
+- 你真正想要的是**声明式抓取配置** —— `ServiceMonitor` / `PodMonitor` /
+  `PrometheusRule` 这类 CRD。
+- 你想要社区事实标准、生态最广（kube-prometheus-stack、仪表盘、社区告警规则）。
+- 集群生命周期 / 备份 / 审计这一层你已经有别的东西在管。
+
+> **注意**：prometheus-operator 和 tsdb-operator 是**互补关系**。
+> prometheus-operator 管的是"抓什么"，tsdb-operator 管的是
+> "Prometheus 集群本身怎么开通、怎么备份、谁改过什么"。
+> 实际平台里完全可以两个一起跑。
 
 ### 选 Thanos 的场景
 
@@ -53,10 +65,13 @@ English version: [COMPARISON.en.md](COMPARISON.en.md)
 
 这三者并不是非此即彼：
 
-- `tsdb-operator` 可以负责那些被 **Thanos** 聚合查询的 Prometheus 实例的
-  生命周期 —— operator 管生命周期，Thanos 管全局视图。
+- `tsdb-operator` + **prometheus-operator**：tsdb-operator 负责把 Prometheus
+  集群开出来，prometheus-operator 的 `ServiceMonitor` / `PodMonitor` 负责
+  驱动抓取配置。
+- `tsdb-operator` + **Thanos**：operator 管生命周期，Thanos Query 提供
+  跨多个被管 Prometheus 的全局视图。
 - `tsdb-operator` 管理的 Prometheus 可以 `remote_write` 到
-  **VictoriaMetrics** 做长期存储，本地仍保留 HA / 备份 / 审计这一层。
+  **VictoriaMetrics** 做长期存储，本地保留 HA / 备份 / 审计这一层。
 
 ## 边界：这个 Operator **不做**什么
 

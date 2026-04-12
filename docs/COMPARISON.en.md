@@ -1,4 +1,4 @@
-# tsdb-operator vs Thanos vs VictoriaMetrics
+# tsdb-operator vs prometheus-operator vs Thanos vs VictoriaMetrics
 
 中文版: [COMPARISON.zh.md](COMPARISON.zh.md)
 
@@ -6,18 +6,18 @@ A quick orientation for people evaluating TSDB options alongside this operator.
 
 ## TL;DR
 
-| | tsdb-operator | Thanos | VictoriaMetrics |
-|---|---|---|---|
-| **What it is** | Kubernetes operator that manages **vanilla Prometheus** clusters | Horizontally-scalable, long-term storage layer **on top of** Prometheus | Standalone time-series database (single-node + cluster editions) |
-| **Primary artifact** | `PrometheusCluster` CRD + controller | Sidecar, Store Gateway, Query, Compactor, Receiver | `vmstorage`, `vminsert`, `vmselect` (or `victoria-metrics` single binary) |
-| **Storage model** | Prometheus local TSDB on PVC + scheduled snapshot→S3 | Prometheus local TSDB + object storage for historical blocks | Own TSDB format, local disk (cluster edition shards across `vmstorage`) |
-| **Query language** | PromQL (Prometheus) | PromQL (via Thanos Query) | MetricsQL (PromQL-compatible superset) |
-| **HA strategy** | Replicate StatefulSet + probe `/-/ready`, delete failed pod | Run ≥2 Prometheus + Thanos Query deduplication | Replicate writes across `vmstorage` nodes (`-replicationFactor`) |
-| **Global view** | Not built-in (single cluster at a time) | Yes — Thanos Query fan-out across many Prometheus | Yes — cluster edition + `vmagent` remote_write |
-| **Backups** | First-class: cron → S3/MinIO via CRD spec | Implicit (historical blocks live in object storage) | `vmbackup` / `vmrestore` tooling |
-| **Audit log** | Built-in (Postgres) | Not provided | Not provided |
-| **Management API** | REST (gin): cluster CRUD + backup + audit | No (operated via kubectl / Helm) | No (operated via kubectl / Helm) |
-| **License** | Apache 2.0 | Apache 2.0 | Apache 2.0 |
+| | tsdb-operator | prometheus-operator | Thanos | VictoriaMetrics |
+|---|---|---|---|---|
+| **What it is** | Kubernetes operator focused on **cluster lifecycle** (provision / HA / backup / audit) | Kubernetes operator focused on **declarative scrape config** for Prometheus & Alertmanager | Horizontally-scalable, long-term storage layer **on top of** Prometheus | Standalone time-series database (single-node + cluster editions) |
+| **Primary artifact** | `PrometheusCluster` CRD + controller | `Prometheus`, `Alertmanager`, `ServiceMonitor`, `PodMonitor`, `PrometheusRule`, `Probe` CRDs | Sidecar, Store Gateway, Query, Compactor, Receiver | `vmstorage`, `vminsert`, `vmselect` (or single binary) |
+| **Storage model** | Prometheus local TSDB on PVC + scheduled snapshot→S3 | Prometheus local TSDB on PVC (storage is user's problem) | Prometheus local TSDB + object storage for historical blocks | Own TSDB format, local disk (cluster edition shards) |
+| **Query language** | PromQL | PromQL | PromQL (via Thanos Query) | MetricsQL (PromQL-compatible superset) |
+| **HA strategy** | Replicate StatefulSet + probe `/-/ready`, delete failed pod | `spec.replicas` ≥ 2; HA + dedup left to Thanos / remote storage | ≥2 Prometheus + Thanos Query deduplication | `-replicationFactor` across `vmstorage` |
+| **Global view** | Not built-in | Not built-in (pair with Thanos/VM) | Yes — Thanos Query fan-out | Yes — cluster edition + `vmagent` remote_write |
+| **Backups** | First-class: cron → S3/MinIO via CRD | Not provided | Implicit (historical blocks in object storage) | `vmbackup` / `vmrestore` |
+| **Audit log** | Built-in (Postgres) | Not provided | Not provided | Not provided |
+| **Management API** | REST (gin): cluster CRUD + backup + audit | No (kubectl / Helm) | No (kubectl / Helm) | No (kubectl / Helm) |
+| **License** | Apache 2.0 | Apache 2.0 | Apache 2.0 | Apache 2.0 |
 
 ## What tsdb-operator actually is
 
@@ -34,6 +34,20 @@ the "Day 2" concerns most teams re-invent per project.
 - You need a **REST API** over cluster management for a control plane or UI.
 - Scale is single-cluster / single-region; global query isn't required.
 - Compliance needs an audit log of every operator action.
+
+### Pick prometheus-operator when
+
+- You need **declarative scrape configuration** — `ServiceMonitor` / `PodMonitor`
+  / `PrometheusRule` is the feature you actually want.
+- You want the de-facto community standard with the widest ecosystem
+  (kube-prometheus-stack, dashboards, community rules).
+- Cluster lifecycle / backup / audit is something your platform already
+  handles elsewhere.
+
+> **Note:** prometheus-operator and tsdb-operator are **complementary**.
+> prometheus-operator owns *what gets scraped*; tsdb-operator owns
+> *how the Prometheus cluster itself is provisioned, backed up, and audited*.
+> In practice a platform could run both.
 
 ### Pick Thanos when
 
@@ -56,11 +70,13 @@ the "Day 2" concerns most teams re-invent per project.
 
 These aren't strictly alternatives:
 
-- `tsdb-operator` could manage the Prometheus instances that **Thanos** queries
-  across — the operator handles lifecycle, Thanos handles global view.
-- `tsdb-operator`-managed Prometheus can `remote_write` into VictoriaMetrics
-  for long-term storage while still giving you the HA/backup/audit surface
-  locally.
+- `tsdb-operator` + **prometheus-operator**: tsdb-operator provisions the
+  Prometheus cluster, prometheus-operator's `ServiceMonitor`/`PodMonitor`
+  CRDs drive its scrape config.
+- `tsdb-operator` + **Thanos**: operator handles lifecycle; Thanos Query
+  provides the global view across many managed Prometheus instances.
+- `tsdb-operator`-managed Prometheus can `remote_write` into **VictoriaMetrics**
+  for long-term storage while keeping HA/backup/audit locally.
 
 ## Scope boundaries (what this operator does NOT do)
 
