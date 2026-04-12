@@ -2,8 +2,8 @@ apiVersion: v2
 name: tsdb-operator
 description: Kubernetes operator for managing Prometheus clusters — HA, scheduled S3 backups, audit log, REST API.
 type: application
-version: 0.3.0
-appVersion: "0.3.0"
+version: 0.3.1
+appVersion: "0.3.1"
 home: https://github.com/MerlionOS/tsdb-operator
 sources:
   - https://github.com/MerlionOS/tsdb-operator

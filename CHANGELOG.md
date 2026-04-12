@@ -6,6 +6,28 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-04-13
+
+Patch release. Three real bugs in the v0.3.0 Thanos sidecar path were
+caught during kind verification and fixed. Upgrade from 0.3.0 is
+recommended for anyone who enabled `spec.thanos.enabled`.
+
+### Fixed
+
+- Prometheus container now gets `--storage.tsdb.min-block-duration=2h`
+  and `--storage.tsdb.max-block-duration=2h` when Thanos is enabled.
+  Without these flags the sidecar refuses to start with "Compaction
+  needs to be disabled".
+- `renderConfig` previously emitted two `global:` blocks when Thanos was
+  enabled, causing `parsing YAML file /etc/prometheus/prometheus.yml:
+  field global already set`. It now composes one combined `global:`
+  section.
+- Thanos requires uniquely-identifying external labels per replica.
+  `renderConfig` now injects `cluster: <name>` and `replica:
+  ${POD_NAME}`, Prometheus gets `--enable-feature=expand-external-labels`,
+  and `POD_NAME` is wired via the downward API so the replica token
+  resolves per pod.
+
 ## [0.3.0] — 2026-04-13
 
 Ecosystem release. Adds an opt-in Thanos sidecar so tsdb-operator-managed
@@ -106,3 +128,4 @@ on kind.
 
 [0.1.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.1.0
 [0.3.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.3.0
+[0.3.1]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.3.1
