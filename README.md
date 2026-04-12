@@ -122,6 +122,10 @@ config/                        kustomize manifests (kubebuilder)
 grafana/dashboards/            Operator dashboard JSON
 ```
 
+## Roadmap
+
+See [`ROADMAP.md`](ROADMAP.md) ([中文](ROADMAP.zh.md)).
+
 ## License
 
 Apache 2.0

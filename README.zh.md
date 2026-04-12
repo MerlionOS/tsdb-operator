@@ -122,6 +122,10 @@ config/                   kustomize manifest (kubebuilder)
 grafana/dashboards/       Operator 监控面板
 ```
 
+## Roadmap
+
+见 [`ROADMAP.zh.md`](ROADMAP.zh.md)（[English](ROADMAP.md)）。
+
 ## 许可证
 
 Apache 2.0
