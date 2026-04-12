@@ -50,7 +50,7 @@ func (s *Server) listClusters(c *gin.Context) {
 }
 
 type createReq struct {
-	Name string                               `json:"name" binding:"required"`
+	Name string                                `json:"name" binding:"required"`
 	Spec observabilityv1.PrometheusClusterSpec `json:"spec"`
 }
 

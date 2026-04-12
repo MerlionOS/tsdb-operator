@@ -26,11 +26,11 @@ type Uploader interface {
 
 // Scheduler runs backups on a cron schedule per PrometheusCluster.
 type Scheduler struct {
-	Client   client.Client
-	S3       Uploader
-	HTTP     *http.Client
-	cron     *cron.Cron
-	entries  map[string]cron.EntryID
+	Client  client.Client
+	S3      Uploader
+	HTTP    *http.Client
+	cron    *cron.Cron
+	entries map[string]cron.EntryID
 }
 
 // New creates a Scheduler ready for Start.
@@ -112,7 +112,7 @@ func (s *Scheduler) snapshot(ctx context.Context, pc *observabilityv1.Prometheus
 	if err != nil {
 		return nil, fmt.Errorf("trigger snapshot: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	buf := &bytes.Buffer{}
 	if _, err := buf.ReadFrom(resp.Body); err != nil {
 		return nil, fmt.Errorf("read snapshot response: %w", err)
