@@ -1,5 +1,7 @@
 # tsdb-operator vs Thanos vs VictoriaMetrics
 
+中文版: [COMPARISON.zh.md](COMPARISON.zh.md)
+
 A quick orientation for people evaluating TSDB options alongside this operator.
 
 ## TL;DR

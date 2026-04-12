@@ -12,7 +12,7 @@ backups, and a record of who changed what. `tsdb-operator` turns that into a
 single declarative CRD (`PrometheusCluster`) and a small control plane.
 
 > How does this compare to Thanos and VictoriaMetrics? See
-> [`docs/COMPARISON.md`](docs/COMPARISON.md).
+> [`docs/COMPARISON.md`](docs/COMPARISON.md) ([中文](docs/COMPARISON.zh.md)).
 
 ## Architecture
 
