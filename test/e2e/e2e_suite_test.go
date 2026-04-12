@@ -49,13 +49,19 @@ func TestE2E(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	// E2E_SKIP_SETUP=true assumes the operator is already deployed in the
+	// target cluster (e.g. via `helm install`). Useful when iterating on the
+	// CR-level specs without rebuilding the manager image each run.
+	if os.Getenv("E2E_SKIP_SETUP") == "true" {
+		_, _ = fmt.Fprintf(GinkgoWriter, "E2E_SKIP_SETUP=true: skipping build/load/cert-manager\n")
+		return
+	}
+
 	By("building the manager image")
 	cmd := exec.Command("make", "docker-build", fmt.Sprintf("IMG=%s", managerImage))
 	_, err := utils.Run(cmd)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the manager image")
 
-	// TODO(user): If you want to change the e2e test vendor from Kind,
-	// ensure the image is built and available, then remove the following block.
 	By("loading the manager image on Kind")
 	err = utils.LoadImageToKindClusterWithName(managerImage)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the manager image into Kind")
