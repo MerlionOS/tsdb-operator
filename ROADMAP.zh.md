@@ -2,53 +2,33 @@
 
 English: [ROADMAP.md](ROADMAP.md)
 
-接下来要做的事，按意图分组。每组内的顺序是建议的执行顺序，不是硬性排期。
+已经交付的、接下来要做的、明确不做的。
 
-## Milestone 1 — 先让它真的能跑起来
+## 已交付
 
-当前脚手架能编译、CI 过，但真的 `kubectl apply` 会挂。这些是首先要修的
-实际缺陷。
+### v0.1.0 — 2026-04-13
 
-- [x] **挂载 Prometheus 配置文件。** 当前 StatefulSet 引用
-  `/etc/prometheus/prometheus.yml` 但没有挂载对应 ConfigMap → CrashLoop。
-  需要：operator 给每个 `PrometheusCluster` 生成默认 ConfigMap 并挂载，
-  同时允许用户通过 `spec.configMapRef` 覆盖。
-- [x] **启用 admin API 以支持快照。** `spec.backup.enabled: true` 时给容器
-  加上 `--web.enable-admin-api`。否则 snapshot 接口 404，备份静默失败。
-- [x] **把 HA 和 Backup 控制器注册进 manager。** 现在 `cmd/main.go` 里
-  只注册了 `PrometheusCluster` reconciler，`internal/ha` 和
-  `internal/backup` 写好了但从未启动。通过 `mgr.Add(...)` 带 flag
-  （`--enable-ha`, `--enable-backup`）注册进去。
-- [x] **加 finalizer。** 删除 `PrometheusCluster` 时清理 headless Service，
-  以及（可选）触发最后一次备份。否则会留下孤儿资源。
+首个打了 tag 的 release。operator 能开出 Prometheus 集群、对副本做
+探活与故障切换、按 cron 快照到 S3，通过 REST API 提供管理能力并记录
+审计日志。已在 kind 上端到端验证通过。
 
-## Milestone 2 — 可观测 + 可测试
+完整列表见 [`CHANGELOG.md`](CHANGELOG.md)。
 
-- [x] **暴露 Prometheus metrics。** 注册 Grafana 面板里已经引用的：
-  - `tsdb_operator_cluster_phase{cluster,phase}`
-  - `tsdb_operator_backup_total{cluster,result}`
-  - `tsdb_operator_failover_total{cluster}`
-- [x] **给 reconciler 加 envtest 测试。** 覆盖 create / scale / delete
-  和 phase 转换。
-- [x] **给 HA 和 Backup 加单测。** 用假 HTTP server + 假 S3 `Uploader`，
-  断言 `LastFailoverTime` / `LastBackupTime` 被正确更新。
-- [x] **REST API 合约测试。** 用假 client 起 gin router，每条路由跑一遍。
+## 下一个版本 v0.2.0
 
-## Milestone 3 — Day-2 打磨
+下个 release 想带上的东西。未打勾的是开放工作项。
 
-- [x] **`tsdb-ctl restore` CLI。** 从 S3 把快照拉回 PVC（备份的对称动作）。
-- [x] **Helm chart。** `charts/tsdb-operator/`，包含 operator 安装和
-  Postgres / S3 secret 的 values。
-- [x] **`remote_write` 集成。** 可选的 `spec.remoteWrite`，让被管理的
-  Prometheus 可以推到 Thanos / Mimir / VictoriaMetrics。
 - [ ] **REST API 加 TLS。** 集成 cert-manager，在 operator service 层面
   终结 TLS，不只靠 ingress。
-- [x] **`docs/adr/` 下写 ADR。** 记录为什么这个 operator 和 prometheus-operator
-  并存、为什么选定时 snapshot 而不是持续 remote-write 等关键决策。
+- [ ] **在 kind+MinIO 上端到端验证备份链路。** 当前备份代码路径有单测
+  但还没有实际对着一个真的对象存储跑过一次完整回环。
+- [ ] **e2e 测试覆盖 scale / delete / failover 场景**（替换占位 e2e）。
+- [ ] **`tsdb-ctl restore` 端到端文档 + 演示。** CLI 写好了，但配套
+  runbook 还没写。
 
-## Milestone 4 — 多集群 / 生态
+## Milestone 4 — 多集群与生态
 
-这一阶段偏愿景，要等 Milestone 1–3 都稳了再做。
+每个都是一个相对独立的大块，可以各自带起一个 0.x 版本。
 
 - [ ] **跨集群聚合 CRD。** `PrometheusClusterSet` 跨多个 namespace、
   共享备份和审计。
