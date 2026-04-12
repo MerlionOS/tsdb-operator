@@ -1,0 +1,172 @@
+/*
+Copyright 2026.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package v1
+
+import (
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+// ClusterPhase is the high-level lifecycle state of a PrometheusCluster.
+type ClusterPhase string
+
+const (
+	PhaseProvisioning ClusterPhase = "Provisioning"
+	PhaseActive       ClusterPhase = "Active"
+	PhaseScaling      ClusterPhase = "Scaling"
+	PhaseFailed       ClusterPhase = "Failed"
+)
+
+// S3BackupSpec describes where backups are shipped.
+type S3BackupSpec struct {
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+	// +optional
+	Bucket string `json:"bucket,omitempty"`
+	// +optional
+	Region string `json:"region,omitempty"`
+	// Endpoint overrides the S3 endpoint (e.g. for MinIO).
+	// +optional
+	Endpoint string `json:"endpoint,omitempty"`
+	// Prefix under which snapshot objects are stored.
+	// +optional
+	Prefix string `json:"prefix,omitempty"`
+	// Cron expression for scheduled snapshots.
+	// +optional
+	Schedule string `json:"schedule,omitempty"`
+	// CredentialsSecretRef references a Secret with AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
+	// +optional
+	CredentialsSecretRef *corev1.LocalObjectReference `json:"credentialsSecretRef,omitempty"`
+}
+
+// StorageSpec describes the PVC used by each replica.
+type StorageSpec struct {
+	// +optional
+	StorageClassName *string `json:"storageClassName,omitempty"`
+	// Size of the PVC, e.g. "50Gi".
+	// +kubebuilder:default="20Gi"
+	Size resource.Quantity `json:"size,omitempty"`
+}
+
+// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+// PrometheusClusterSpec defines the desired state of PrometheusCluster
+type PrometheusClusterSpec struct {
+	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+	// The following markers will use OpenAPI v3 schema to validate the value
+	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+
+	// Replicas is the desired number of Prometheus replicas.
+	// +kubebuilder:default=1
+	// +kubebuilder:validation:Minimum=1
+	Replicas int32 `json:"replicas,omitempty"`
+
+	// Image is the Prometheus container image.
+	// +kubebuilder:default="prom/prometheus:v2.53.0"
+	Image string `json:"image,omitempty"`
+
+	// Retention period for local TSDB data, e.g. "15d".
+	// +kubebuilder:default="15d"
+	Retention string `json:"retention,omitempty"`
+
+	// Storage describes the per-replica PVC.
+	// +optional
+	Storage StorageSpec `json:"storage,omitempty"`
+
+	// Resources is the container resource requests/limits.
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// Backup configuration.
+	// +optional
+	Backup S3BackupSpec `json:"backup,omitempty"`
+}
+
+// PrometheusClusterStatus defines the observed state of PrometheusCluster.
+type PrometheusClusterStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+
+	// For Kubernetes API conventions, see:
+	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
+
+	// conditions represent the current state of the PrometheusCluster resource.
+	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
+	//
+	// Standard condition types include:
+	// - "Available": the resource is fully functional
+	// - "Progressing": the resource is being created or updated
+	// - "Degraded": the resource failed to reach or maintain its desired state
+	//
+	// The status of each condition is one of True, False, or Unknown.
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// Phase is the high-level lifecycle state.
+	// +optional
+	Phase ClusterPhase `json:"phase,omitempty"`
+
+	// ReadyReplicas is the number of replicas reporting Ready.
+	// +optional
+	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
+
+	// LastBackupTime is the timestamp of the most recent successful backup.
+	// +optional
+	LastBackupTime *metav1.Time `json:"lastBackupTime,omitempty"`
+
+	// LastFailoverTime is the timestamp of the most recent failover event.
+	// +optional
+	LastFailoverTime *metav1.Time `json:"lastFailoverTime,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+
+// PrometheusCluster is the Schema for the prometheusclusters API
+type PrometheusCluster struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is a standard object metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	// spec defines the desired state of PrometheusCluster
+	// +required
+	Spec PrometheusClusterSpec `json:"spec"`
+
+	// status defines the observed state of PrometheusCluster
+	// +optional
+	Status PrometheusClusterStatus `json:"status,omitzero"`
+}
+
+// +kubebuilder:object:root=true
+
+// PrometheusClusterList contains a list of PrometheusCluster
+type PrometheusClusterList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitzero"`
+	Items           []PrometheusCluster `json:"items"`
+}
+
+func init() {
+	SchemeBuilder.Register(&PrometheusCluster{}, &PrometheusClusterList{})
+}

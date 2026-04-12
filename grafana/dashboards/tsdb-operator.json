@@ -1,0 +1,46 @@
+{
+  "title": "tsdb-operator",
+  "uid": "tsdb-operator",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {"from": "now-6h", "to": "now"},
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Cluster count by phase",
+      "id": 1,
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "sum by (phase) (tsdb_operator_cluster_phase)", "legendFormat": "{{phase}}"}
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "Backup success rate (1h)",
+      "id": 2,
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {"expr": "sum(rate(tsdb_operator_backup_total{result=\"success\"}[1h])) / sum(rate(tsdb_operator_backup_total[1h]))"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Failover events",
+      "id": 3,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "targets": [
+        {"expr": "sum by (cluster) (increase(tsdb_operator_failover_total[5m]))", "legendFormat": "{{cluster}}"}
+      ]
+    },
+    {
+      "type": "heatmap",
+      "title": "Reconcile duration",
+      "id": 4,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "targets": [
+        {"expr": "sum by (le) (rate(controller_runtime_reconcile_time_seconds_bucket{controller=\"prometheuscluster\"}[5m]))", "format": "heatmap"}
+      ]
+    }
+  ]
+}
