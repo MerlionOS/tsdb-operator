@@ -6,6 +6,26 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-04-13
+
+Ecosystem release. Adds an opt-in Thanos sidecar so tsdb-operator-managed
+Prometheus instances can participate in a global query view and long-term
+object-storage retention without swapping operators. Ships with a
+bidirectional migration guide.
+
+### Added
+
+- `spec.thanos.enabled` attaches a Thanos sidecar to each replica. The
+  sidecar shares the `/prometheus` data volume and ships 2h blocks to
+  object storage. Configurable via `spec.thanos.image` and
+  `spec.thanos.objectStorageConfigSecretRef` (references a Secret with an
+  `objstore.yml` key, mounted via `--objstore.config-file`).
+- `docs/MIGRATION.{en,zh}.md`: bidirectional prometheus-operator ↔
+  tsdb-operator guide with field-by-field CR translation tables and a
+  "run both" option.
+- Unit tests covering the sidecar-off, sidecar-on-no-objstore, and
+  sidecar-on-with-objstore branches.
+
 ## [0.2.0] — 2026-04-13
 
 Hardening release. Every v0.1.0 feature that existed in the codebase but
@@ -85,3 +105,4 @@ on kind.
 - CI: lint (golangci-lint), unit tests, envtest, e2e on kind.
 
 [0.1.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.1.0
+[0.3.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.3.0
