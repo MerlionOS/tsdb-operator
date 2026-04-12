@@ -6,37 +6,48 @@ English: [ROADMAP.md](ROADMAP.md)
 
 ## 已交付
 
+### v0.3.1 — 2026-04-13
+
+在 kind 验证时发现并修复了三个 Thanos sidecar 相关 bug
+（`--storage.tsdb.{min,max}-block-duration`、`global:` 块重复、缺
+`external_labels`）。推荐 0.3.0 且启用了 `spec.thanos.enabled` 的用户升级。
+
+### v0.3.0 — 2026-04-13
+
+生态主题 release。可选的 Thanos sidecar（`spec.thanos.enabled`），加上
+`prometheus-operator ↔ tsdb-operator` 双向迁移指南。
+
+### v0.2.0 — 2026-04-13
+
+Hardening release。REST API 接入 manager + cert-manager TLS；kind 端到端
+测试；修复四个真实 bug（`SetupSignalHandler` 被调两次、template 不更新、
+scheduler 从未 Register、REST API 从未启动）。
+
 ### v0.1.0 — 2026-04-13
 
-首个打了 tag 的 release。operator 能开出 Prometheus 集群、对副本做
-探活与故障切换、按 cron 快照到 S3，通过 REST API 提供管理能力并记录
-审计日志。已在 kind 上端到端验证通过。
+首个 tag release。`PrometheusCluster` CRD、reconciler、HA 检查器、S3
+备份调度、PostgreSQL 审计日志、gin REST API、Helm chart。
 
-完整列表见 [`CHANGELOG.md`](CHANGELOG.md)。
+逐 release 明细见 [`CHANGELOG.md`](CHANGELOG.md)。
 
-## 下一个版本 v0.2.0
+## 下一个版本 v0.4.0
 
-下个 release 想带上的东西。未打勾的是开放工作项。
+Milestone 4 还剩两件，v0.4.0 选一（待定）：
 
-- [ ] **REST API 加 TLS。** 集成 cert-manager，在 operator service 层面
-  终结 TLS，不只靠 ingress。
-- [ ] **在 kind+MinIO 上端到端验证备份链路。** 当前备份代码路径有单测
-  但还没有实际对着一个真的对象存储跑过一次完整回环。
-- [ ] **e2e 测试覆盖 scale / delete / failover 场景**（替换占位 e2e）。
-- [ ] **`tsdb-ctl restore` 端到端文档 + 演示。** CLI 写好了，但配套
-  runbook 还没写。
+- [ ] **`PrometheusClusterSet` CRD。** 跨 namespace 聚合，共享备份 /
+  审计策略。旗舰多集群特性。
+- [ ] **审计日志保留策略。** `audit_log` 分区表 + 定期清理 + 行数 metric。
+  小而自洽。
 
-## Milestone 4 — 多集群与生态
+## 以后
 
-每个都是一个相对独立的大块，可以各自带起一个 0.x 版本。
-
-- [ ] **跨集群聚合 CRD。** `PrometheusClusterSet` 跨多个 namespace、
-  共享备份和审计。
-- [ ] **Thanos sidecar 可选开关。** `spec.thanos.enabled: true` 挂一个
-  sidecar + objstore config secret。
-- [ ] **审计日志保留策略。** 分区表 + 定期清理。
-- [ ] **operator 之间的迁移指南。** prometheus-operator ↔ tsdb-operator
-  双向迁移。
+- [ ] **更靠谱的备份产物。** 当前调度器上传的是 admin API 的 JSON
+  响应体；真正的 point-in-time 恢复还需要把磁盘上的 snapshot 目录
+  tar 打包上传。记录在 [`docs/RESTORE.md`](docs/RESTORE.md) 顶部。
+- [ ] **Webhook 校验。** 在 admission 阶段拒绝非法的
+  `spec.backup.schedule` cron 表达式，而不是等 cron 触发时才报错。
+- [ ] **可组合的抓取配置。** 让用户能在不手改 ConfigMap 的前提下，
+  往生成的 `prometheus.yml` 上叠加额外的 `scrape_configs`。
 
 ## Non-goals（明确不做的事）
 
