@@ -1,6 +1,6 @@
 # tsdb-operator vs Thanos vs VictoriaMetrics（中文版）
 
-English version: [COMPARISON.md](COMPARISON.md)
+English version: [COMPARISON.en.md](COMPARISON.en.md)
 
 给正在评估 TSDB 方案的同学一个速览。
 
