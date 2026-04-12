@@ -17,6 +17,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	observabilityv1 "github.com/MerlionOS/tsdb-operator/api/v1"
+	"github.com/MerlionOS/tsdb-operator/internal/metrics"
 )
 
 // Uploader abstracts the S3 PutObject surface we need (swappable in tests).
@@ -76,7 +77,15 @@ func (s *Scheduler) Register(ctx context.Context, pc *observabilityv1.Prometheus
 }
 
 // RunOnce triggers a snapshot + upload for the named cluster.
-func (s *Scheduler) RunOnce(ctx context.Context, namespace, name string) error {
+func (s *Scheduler) RunOnce(ctx context.Context, namespace, name string) (err error) {
+	defer func() {
+		result := "success"
+		if err != nil {
+			result = "error"
+		}
+		metrics.BackupTotal.WithLabelValues(namespace, name, result).Inc()
+	}()
+
 	var pc observabilityv1.PrometheusCluster
 	if err := s.Client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, &pc); err != nil {
 		return fmt.Errorf("get cluster: %w", err)

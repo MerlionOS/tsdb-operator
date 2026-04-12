@@ -28,6 +28,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	observabilityv1 "github.com/MerlionOS/tsdb-operator/api/v1"
+	"github.com/MerlionOS/tsdb-operator/internal/metrics"
 )
 
 const finalizerName = "observability.merlionos.org/finalizer"
@@ -130,6 +131,7 @@ func (r *PrometheusClusterReconciler) finalize(ctx context.Context, pc *observab
 	if err := r.Update(ctx, pc); err != nil {
 		return ctrl.Result{}, fmt.Errorf("remove finalizer: %w", err)
 	}
+	metrics.DeleteCluster(pc.Namespace, pc.Name)
 	return ctrl.Result{}, nil
 }
 
@@ -139,6 +141,7 @@ func (r *PrometheusClusterReconciler) updatePhase(ctx context.Context, pc *obser
 	if err := r.Status().Update(ctx, pc); err != nil {
 		return ctrl.Result{}, fmt.Errorf("update status: %w", err)
 	}
+	metrics.SetPhase(pc.Namespace, pc.Name, string(phase))
 	return ctrl.Result{}, nil
 }
 

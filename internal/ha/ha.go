@@ -15,6 +15,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	observabilityv1 "github.com/MerlionOS/tsdb-operator/api/v1"
+	"github.com/MerlionOS/tsdb-operator/internal/metrics"
 )
 
 // HealthChecker polls replica /-/ready endpoints and records failovers.
@@ -97,6 +98,7 @@ func (h *HealthChecker) triggerFailover(ctx context.Context, pc *observabilityv1
 	if cause != nil {
 		reason = cause.Error()
 	}
+	metrics.FailoverTotal.WithLabelValues(pc.Namespace, pc.Name).Inc()
 	h.Recorder.Eventf(pc, corev1.EventTypeWarning, "FailoverTriggered",
 		"replica %s failed health check: %s — deleting pod to trigger rescheduling", pod.Name, reason)
 	if err := h.Client.Delete(ctx, pod); err != nil {
