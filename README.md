@@ -11,6 +11,9 @@ StatefulSets, PVCs, headless services, health checks, snapshotting, off-cluster
 backups, and a record of who changed what. `tsdb-operator` turns that into a
 single declarative CRD (`PrometheusCluster`) and a small control plane.
 
+> How does this compare to Thanos and VictoriaMetrics? See
+> [`docs/COMPARISON.md`](docs/COMPARISON.md).
+
 ## Architecture
 
 ```
