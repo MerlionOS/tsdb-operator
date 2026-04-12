@@ -40,11 +40,13 @@ var _ = Describe("PrometheusCluster Controller", func() {
 	}
 
 	reconcileUntilStable := func(r *PrometheusClusterReconciler) {
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			res, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: typeNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
-			if !res.Requeue {
-				return
+			if res.RequeueAfter == 0 { //nolint:staticcheck // legacy Requeue field is still how the reconciler signals
+				if !res.Requeue { //nolint:staticcheck
+					return
+				}
 			}
 		}
 	}
