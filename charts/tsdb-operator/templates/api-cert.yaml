@@ -1,0 +1,32 @@
+{{- if and .Values.features.api .Values.api.tls.enabled .Values.api.tls.certManager.enabled }}
+{{- if eq .Values.api.tls.certManager.issuerRef.name "tsdb-operator-selfsigned" }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: tsdb-operator-selfsigned
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tsdb-operator.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+{{- end }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "tsdb-operator.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tsdb-operator.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.api.tls.secretName }}
+  issuerRef:
+    kind: {{ .Values.api.tls.certManager.issuerRef.kind }}
+    name: {{ .Values.api.tls.certManager.issuerRef.name }}
+  dnsNames:
+    - {{ include "tsdb-operator.fullname" . }}-api
+    - {{ include "tsdb-operator.fullname" . }}-api.{{ .Release.Namespace }}
+    - {{ include "tsdb-operator.fullname" . }}-api.{{ .Release.Namespace }}.svc
+    - {{ include "tsdb-operator.fullname" . }}-api.{{ .Release.Namespace }}.svc.cluster.local
+{{- end }}

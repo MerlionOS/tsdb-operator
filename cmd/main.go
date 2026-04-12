@@ -44,6 +44,7 @@ import (
 	"github.com/MerlionOS/tsdb-operator/internal/backup"
 	"github.com/MerlionOS/tsdb-operator/internal/controller"
 	"github.com/MerlionOS/tsdb-operator/internal/ha"
+	apisrv "github.com/MerlionOS/tsdb-operator/pkg/api"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -68,7 +69,8 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
-	var enableHA, enableBackup bool
+	var enableHA, enableBackup, enableAPI bool
+	var apiAddr, apiTLSCertDir, apiNamespace string
 	var s3Endpoint, s3Region string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
@@ -90,6 +92,12 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.BoolVar(&enableHA, "enable-ha", true, "Run the HA health-check loop.")
 	flag.BoolVar(&enableBackup, "enable-backup", true, "Run the backup scheduler.")
+	flag.BoolVar(&enableAPI, "enable-api", true, "Run the REST API server.")
+	flag.StringVar(&apiAddr, "api-address", ":8080", "Address for the REST API server.")
+	flag.StringVar(&apiTLSCertDir, "api-tls-cert-dir", "",
+		"Directory with tls.crt and tls.key. If set, the REST API serves HTTPS.")
+	flag.StringVar(&apiNamespace, "api-namespace", "default",
+		"Namespace the REST API operates in.")
 	flag.StringVar(&s3Endpoint, "s3-endpoint", "", "Override the S3 endpoint URL (e.g. MinIO).")
 	flag.StringVar(&s3Region, "s3-region", "us-east-1", "Default S3 region for the backup client.")
 	opts := zap.Options{
@@ -231,6 +239,20 @@ func main() {
 	if err := reconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "PrometheusCluster")
 		os.Exit(1)
+	}
+
+	if enableAPI {
+		srv := &apisrv.Server{
+			Client:     mgr.GetClient(),
+			Namespace:  apiNamespace,
+			TLSCertDir: apiTLSCertDir,
+		}
+		if err := mgr.Add(runnableFunc(func(ctx context.Context) error {
+			return srv.ListenAndServe(ctx, apiAddr)
+		})); err != nil {
+			setupLog.Error(err, "Failed to add REST API server")
+			os.Exit(1)
+		}
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

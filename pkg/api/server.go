@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,6 +24,10 @@ type Server struct {
 	Namespace string
 	Audit     *audit.Logger
 	Backup    *backup.Scheduler
+
+	// TLSCertDir, when non-empty, makes ListenAndServe run HTTPS using
+	// <dir>/tls.crt and <dir>/tls.key (cert-manager default layout).
+	TLSCertDir string
 }
 
 // Router builds a gin.Engine with all routes registered.
@@ -155,15 +160,31 @@ func statusFor(err error) int {
 	}
 }
 
-// ListenAndServe runs the HTTP server until ctx is cancelled.
+// ListenAndServe runs the HTTP server until ctx is cancelled. Serves HTTPS
+// when TLSCertDir is set, HTTP otherwise.
 func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
-	srv := &http.Server{Addr: addr, Handler: s.Router()}
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           s.Router(),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
 	errCh := make(chan error, 1)
-	go func() { errCh <- srv.ListenAndServe() }()
+	go func() {
+		if s.TLSCertDir != "" {
+			certFile := s.TLSCertDir + "/tls.crt"
+			keyFile := s.TLSCertDir + "/tls.key"
+			errCh <- srv.ListenAndServeTLS(certFile, keyFile)
+		} else {
+			errCh <- srv.ListenAndServe()
+		}
+	}()
 	select {
 	case <-ctx.Done():
 		return srv.Shutdown(context.Background())
 	case err := <-errCh:
+		if err == http.ErrServerClosed {
+			return nil
+		}
 		return fmt.Errorf("http server: %w", err)
 	}
 }

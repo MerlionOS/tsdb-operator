@@ -26,6 +26,14 @@ spec:
             - --leader-elect={{ .Values.leaderElection.enabled }}
             - --enable-ha={{ .Values.features.ha }}
             - --enable-backup={{ .Values.features.backup }}
+            - --enable-api={{ .Values.features.api }}
+            {{- if .Values.features.api }}
+            - --api-namespace={{ .Values.api.namespace }}
+            - --api-address=:8080
+            {{- if .Values.api.tls.enabled }}
+            - --api-tls-cert-dir=/etc/tsdb-operator/api-tls
+            {{- end }}
+            {{- end }}
             {{- if .Values.s3.region }}
             - --s3-region={{ .Values.s3.region }}
             {{- end }}
@@ -39,6 +47,17 @@ spec:
             - name: healthz
               containerPort: 8081
               protocol: TCP
+            {{- if .Values.features.api }}
+            - name: api
+              containerPort: 8080
+              protocol: TCP
+            {{- end }}
+          {{- if and .Values.features.api .Values.api.tls.enabled }}
+          volumeMounts:
+            - name: api-tls
+              mountPath: /etc/tsdb-operator/api-tls
+              readOnly: true
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -58,6 +77,12 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      {{- if and .Values.features.api .Values.api.tls.enabled }}
+      volumes:
+        - name: api-tls
+          secret:
+            secretName: {{ .Values.api.tls.secretName }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

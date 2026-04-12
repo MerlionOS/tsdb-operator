@@ -1,0 +1,17 @@
+{{- if .Values.features.api }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tsdb-operator.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tsdb-operator.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "tsdb-operator.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: api
+      port: {{ if .Values.api.tls.enabled }}443{{ else }}80{{ end }}
+      targetPort: api
+      protocol: TCP
+{{- end }}

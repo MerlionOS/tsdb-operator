@@ -11,6 +11,23 @@ leaderElection:
 features:
   ha: true
   backup: true
+  api: true
+
+# REST API server settings. When tls.enabled is true, cert-manager must be
+# installed in the cluster and will issue a self-signed certificate into the
+# operator's pod. Override issuerRef to use an existing issuer.
+api:
+  namespace: default   # namespace the API's list/create/delete operate on
+  tls:
+    enabled: false
+    # Secret that contains tls.crt / tls.key. If unset and tls.certManager
+    # is true, a cert-manager Certificate with this secret name is created.
+    secretName: tsdb-operator-api-tls
+    certManager:
+      enabled: false
+      issuerRef:
+        kind: Issuer
+        name: tsdb-operator-selfsigned
 
 # S3 defaults used by the backup scheduler. Override per-cluster via the
 # PrometheusCluster CRD's spec.backup.
