@@ -8,6 +8,8 @@ English: [README.md](README.md)
 > PVC 已经有了，为什么还要 snapshot 到 S3？见
 > [`docs/BACKUPS.zh.md`](docs/BACKUPS.zh.md)（[English](docs/BACKUPS.en.md)）。
 >
+> 如何从备份恢复：[`docs/RESTORE.zh.md`](docs/RESTORE.zh.md)（[English](docs/RESTORE.md)）。
+>
 > 和 Thanos、VictoriaMetrics 的对比见
 > [`docs/COMPARISON.zh.md`](docs/COMPARISON.zh.md)（[English](docs/COMPARISON.en.md)）。
 >

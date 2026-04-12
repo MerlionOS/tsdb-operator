@@ -16,6 +16,9 @@ single declarative CRD (`PrometheusCluster`) and a small control plane.
 > Why snapshot to S3 when PVCs exist? See
 > [`docs/BACKUPS.en.md`](docs/BACKUPS.en.md) ([中文](docs/BACKUPS.zh.md)).
 >
+> How to restore from a backup:
+> [`docs/RESTORE.md`](docs/RESTORE.md) ([中文](docs/RESTORE.zh.md)).
+>
 > How does this compare to Thanos and VictoriaMetrics? See
 > [`docs/COMPARISON.en.md`](docs/COMPARISON.en.md) ([中文](docs/COMPARISON.zh.md)).
 >
