@@ -75,6 +75,26 @@ type RemoteWriteSpec struct {
 	BearerTokenSecretRef *corev1.LocalObjectReference `json:"bearerTokenSecretRef,omitempty"`
 }
 
+// ThanosSpec opts the cluster into a Thanos sidecar. The sidecar reads the
+// same TSDB data volume as Prometheus and ships 2h blocks to object storage.
+// Pair with Thanos Query elsewhere for a global query view.
+type ThanosSpec struct {
+	// Enabled turns the sidecar on.
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Image is the Thanos container image.
+	// +kubebuilder:default="quay.io/thanos/thanos:v0.36.1"
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// ObjectStorageConfigSecretRef references a Secret with an
+	// "objstore.yml" key in the Thanos objstore format. Sidecar reads it
+	// via --objstore.config-file.
+	// +optional
+	ObjectStorageConfigSecretRef *corev1.LocalObjectReference `json:"objectStorageConfigSecretRef,omitempty"`
+}
+
 // StorageSpec describes the PVC used by each replica.
 type StorageSpec struct {
 	// +optional
@@ -122,6 +142,10 @@ type PrometheusClusterSpec struct {
 	// RemoteWrite endpoints the managed Prometheus should stream samples to.
 	// +optional
 	RemoteWrite []RemoteWriteSpec `json:"remoteWrite,omitempty"`
+
+	// Thanos optionally attaches a Thanos sidecar to each replica.
+	// +optional
+	Thanos ThanosSpec `json:"thanos,omitempty"`
 }
 
 // PrometheusClusterStatus defines the observed state of PrometheusCluster.

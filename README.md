@@ -19,6 +19,9 @@ single declarative CRD (`PrometheusCluster`) and a small control plane.
 > How to restore from a backup:
 > [`docs/RESTORE.md`](docs/RESTORE.md) ([中文](docs/RESTORE.zh.md)).
 >
+> Migrating to/from prometheus-operator:
+> [`docs/MIGRATION.md`](docs/MIGRATION.md) ([中文](docs/MIGRATION.zh.md)).
+>
 > How does this compare to Thanos and VictoriaMetrics? See
 > [`docs/COMPARISON.en.md`](docs/COMPARISON.en.md) ([中文](docs/COMPARISON.zh.md)).
 >

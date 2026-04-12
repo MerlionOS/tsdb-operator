@@ -255,6 +255,45 @@ func (r *PrometheusClusterReconciler) buildStatefulSet(pc *observabilityv1.Prome
 	if pc.Spec.Backup.Enabled {
 		args = append(args, "--web.enable-admin-api")
 	}
+	containers := []corev1.Container{{
+		Name:  "prometheus",
+		Image: image,
+		Args:  args,
+		Ports: []corev1.ContainerPort{{Name: "http", ContainerPort: 9090}},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
+				Path: "/-/ready", Port: intstr.FromInt(9090),
+			}},
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
+				Path: "/-/healthy", Port: intstr.FromInt(9090),
+			}},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "data", MountPath: "/prometheus"},
+			{Name: "config", MountPath: "/etc/prometheus"},
+		},
+		Resources: pc.Spec.Resources,
+	}}
+
+	volumes := []corev1.Volume{{
+		Name: "config",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{Name: configMapName(pc)},
+			},
+		},
+	}}
+
+	if pc.Spec.Thanos.Enabled {
+		sidecar, extraVolume := buildThanosSidecar(&pc.Spec.Thanos)
+		containers = append(containers, sidecar)
+		if extraVolume != nil {
+			volumes = append(volumes, *extraVolume)
+		}
+	}
+
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pc.Name,
@@ -268,35 +307,8 @@ func (r *PrometheusClusterReconciler) buildStatefulSet(pc *observabilityv1.Prome
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name:  "prometheus",
-						Image: image,
-						Args:  args,
-						Ports: []corev1.ContainerPort{{Name: "http", ContainerPort: 9090}},
-						ReadinessProbe: &corev1.Probe{
-							ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
-								Path: "/-/ready", Port: intstr.FromInt(9090),
-							}},
-						},
-						LivenessProbe: &corev1.Probe{
-							ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
-								Path: "/-/healthy", Port: intstr.FromInt(9090),
-							}},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{Name: "data", MountPath: "/prometheus"},
-							{Name: "config", MountPath: "/etc/prometheus"},
-						},
-						Resources: pc.Spec.Resources,
-					}},
-					Volumes: []corev1.Volume{{
-						Name: "config",
-						VolumeSource: corev1.VolumeSource{
-							ConfigMap: &corev1.ConfigMapVolumeSource{
-								LocalObjectReference: corev1.LocalObjectReference{Name: configMapName(pc)},
-							},
-						},
-					}},
+					Containers: containers,
+					Volumes:    volumes,
 				},
 			},
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{{
@@ -311,6 +323,54 @@ func (r *PrometheusClusterReconciler) buildStatefulSet(pc *observabilityv1.Prome
 			}},
 		},
 	}
+}
+
+// buildThanosSidecar returns the sidecar container and an optional Volume
+// for the objstore config Secret. Sidecar reads blocks from the shared
+// /prometheus data volume and ships them to object storage.
+func buildThanosSidecar(t *observabilityv1.ThanosSpec) (corev1.Container, *corev1.Volume) {
+	image := t.Image
+	if image == "" {
+		image = "quay.io/thanos/thanos:v0.36.1"
+	}
+	args := []string{
+		"sidecar",
+		"--tsdb.path=/prometheus",
+		"--prometheus.url=http://localhost:9090",
+		"--http-address=0.0.0.0:10902",
+		"--grpc-address=0.0.0.0:10901",
+	}
+	mounts := []corev1.VolumeMount{
+		{Name: "data", MountPath: "/prometheus"},
+	}
+	var volume *corev1.Volume
+	if t.ObjectStorageConfigSecretRef != nil {
+		args = append(args, "--objstore.config-file=/etc/thanos/objstore/objstore.yml")
+		mounts = append(mounts, corev1.VolumeMount{
+			Name: "thanos-objstore", MountPath: "/etc/thanos/objstore", ReadOnly: true,
+		})
+		volume = &corev1.Volume{
+			Name: "thanos-objstore",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{SecretName: t.ObjectStorageConfigSecretRef.Name},
+			},
+		}
+	}
+	return corev1.Container{
+		Name:  "thanos-sidecar",
+		Image: image,
+		Args:  args,
+		Ports: []corev1.ContainerPort{
+			{Name: "thanos-http", ContainerPort: 10902},
+			{Name: "thanos-grpc", ContainerPort: 10901},
+		},
+		VolumeMounts: mounts,
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
+				Path: "/-/ready", Port: intstr.FromInt(10902),
+			}},
+		},
+	}, volume
 }
 
 // SetupWithManager sets up the controller with the Manager.

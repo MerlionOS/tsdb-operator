@@ -10,6 +10,9 @@ English: [README.md](README.md)
 >
 > 如何从备份恢复：[`docs/RESTORE.zh.md`](docs/RESTORE.zh.md)（[English](docs/RESTORE.md)）。
 >
+> 和 prometheus-operator 双向迁移：
+> [`docs/MIGRATION.zh.md`](docs/MIGRATION.zh.md)（[English](docs/MIGRATION.md)）。
+>
 > 和 Thanos、VictoriaMetrics 的对比见
 > [`docs/COMPARISON.zh.md`](docs/COMPARISON.zh.md)（[English](docs/COMPARISON.en.md)）。
 >
