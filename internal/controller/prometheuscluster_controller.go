@@ -30,6 +30,19 @@ import (
 	observabilityv1 "github.com/MerlionOS/tsdb-operator/api/v1"
 )
 
+const finalizerName = "observability.merlionos.org/finalizer"
+
+// defaultPrometheusConfig is mounted into each replica when the user does not
+// supply one. It scrapes the operator itself and the replica's own /metrics.
+const defaultPrometheusConfig = `global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+`
+
 // PrometheusClusterReconciler reconciles a PrometheusCluster object.
 type PrometheusClusterReconciler struct {
 	client.Client
@@ -41,6 +54,7 @@ type PrometheusClusterReconciler struct {
 // +kubebuilder:rbac:groups=observability.merlionos.org,resources=prometheusclusters/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *PrometheusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -55,9 +69,20 @@ func (r *PrometheusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	if !pc.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
+		return r.finalize(ctx, &pc)
 	}
 
+	if !controllerutil.ContainsFinalizer(&pc, finalizerName) {
+		controllerutil.AddFinalizer(&pc, finalizerName)
+		if err := r.Update(ctx, &pc); err != nil {
+			return ctrl.Result{}, fmt.Errorf("add finalizer: %w", err)
+		}
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	if err := r.reconcileConfigMap(ctx, &pc); err != nil {
+		return ctrl.Result{}, fmt.Errorf("reconcile configmap: %w", err)
+	}
 	if err := r.reconcileHeadlessService(ctx, &pc); err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile service: %w", err)
 	}
@@ -94,6 +119,20 @@ func (r *PrometheusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return r.updatePhase(ctx, &pc, phase, current.Status.ReadyReplicas)
 }
 
+// finalize handles cleanup on deletion. Owner references take care of the
+// StatefulSet, Service, and ConfigMap; the finalizer is a hook for future
+// work (e.g. a last-chance backup) and guarantees the audit trail sees it.
+func (r *PrometheusClusterReconciler) finalize(ctx context.Context, pc *observabilityv1.PrometheusCluster) (ctrl.Result, error) {
+	if !controllerutil.ContainsFinalizer(pc, finalizerName) {
+		return ctrl.Result{}, nil
+	}
+	controllerutil.RemoveFinalizer(pc, finalizerName)
+	if err := r.Update(ctx, pc); err != nil {
+		return ctrl.Result{}, fmt.Errorf("remove finalizer: %w", err)
+	}
+	return ctrl.Result{}, nil
+}
+
 func (r *PrometheusClusterReconciler) updatePhase(ctx context.Context, pc *observabilityv1.PrometheusCluster, phase observabilityv1.ClusterPhase, ready int32) (ctrl.Result, error) {
 	pc.Status.Phase = phase
 	pc.Status.ReadyReplicas = ready
@@ -101,6 +140,24 @@ func (r *PrometheusClusterReconciler) updatePhase(ctx context.Context, pc *obser
 		return ctrl.Result{}, fmt.Errorf("update status: %w", err)
 	}
 	return ctrl.Result{}, nil
+}
+
+func (r *PrometheusClusterReconciler) reconcileConfigMap(ctx context.Context, pc *observabilityv1.PrometheusCluster) error {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: configMapName(pc), Namespace: pc.Namespace},
+	}
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
+		if cm.Data == nil {
+			cm.Data = map[string]string{}
+		}
+		// Only set the default if the key isn't already populated — leaves
+		// room for users to patch their own config into the same ConfigMap.
+		if _, ok := cm.Data["prometheus.yml"]; !ok {
+			cm.Data["prometheus.yml"] = defaultPrometheusConfig
+		}
+		return controllerutil.SetControllerReference(pc, cm, r.Scheme)
+	})
+	return err
 }
 
 func (r *PrometheusClusterReconciler) reconcileHeadlessService(ctx context.Context, pc *observabilityv1.PrometheusCluster) error {
@@ -120,6 +177,10 @@ func (r *PrometheusClusterReconciler) reconcileHeadlessService(ctx context.Conte
 	return err
 }
 
+func configMapName(pc *observabilityv1.PrometheusCluster) string {
+	return pc.Name + "-config"
+}
+
 func (r *PrometheusClusterReconciler) buildStatefulSet(pc *observabilityv1.PrometheusCluster) *appsv1.StatefulSet {
 	labels := map[string]string{
 		"app.kubernetes.io/name":     "prometheus",
@@ -137,6 +198,15 @@ func (r *PrometheusClusterReconciler) buildStatefulSet(pc *observabilityv1.Prome
 	if retention == "" {
 		retention = "15d"
 	}
+	args := []string{
+		"--config.file=/etc/prometheus/prometheus.yml",
+		"--storage.tsdb.path=/prometheus",
+		fmt.Sprintf("--storage.tsdb.retention.time=%s", retention),
+		"--web.enable-lifecycle",
+	}
+	if pc.Spec.Backup.Enabled {
+		args = append(args, "--web.enable-admin-api")
+	}
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pc.Name,
@@ -153,12 +223,7 @@ func (r *PrometheusClusterReconciler) buildStatefulSet(pc *observabilityv1.Prome
 					Containers: []corev1.Container{{
 						Name:  "prometheus",
 						Image: image,
-						Args: []string{
-							"--config.file=/etc/prometheus/prometheus.yml",
-							"--storage.tsdb.path=/prometheus",
-							fmt.Sprintf("--storage.tsdb.retention.time=%s", retention),
-							"--web.enable-lifecycle",
-						},
+						Args:  args,
 						Ports: []corev1.ContainerPort{{Name: "http", ContainerPort: 9090}},
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
@@ -170,8 +235,19 @@ func (r *PrometheusClusterReconciler) buildStatefulSet(pc *observabilityv1.Prome
 								Path: "/-/healthy", Port: intstr.FromInt(9090),
 							}},
 						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/prometheus"}},
-						Resources:    pc.Spec.Resources,
+						VolumeMounts: []corev1.VolumeMount{
+							{Name: "data", MountPath: "/prometheus"},
+							{Name: "config", MountPath: "/etc/prometheus"},
+						},
+						Resources: pc.Spec.Resources,
+					}},
+					Volumes: []corev1.Volume{{
+						Name: "config",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{Name: configMapName(pc)},
+							},
+						},
 					}},
 				},
 			},
@@ -195,6 +271,7 @@ func (r *PrometheusClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&observabilityv1.PrometheusCluster{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&corev1.Service{}).
+		Owns(&corev1.ConfigMap{}).
 		Named("prometheuscluster").
 		Complete(r)
 }

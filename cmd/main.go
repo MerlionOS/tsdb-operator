@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
@@ -35,8 +36,14 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+
 	observabilityv1 "github.com/MerlionOS/tsdb-operator/api/v1"
+	"github.com/MerlionOS/tsdb-operator/internal/backup"
 	"github.com/MerlionOS/tsdb-operator/internal/controller"
+	"github.com/MerlionOS/tsdb-operator/internal/ha"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -61,6 +68,8 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var enableHA, enableBackup bool
+	var s3Endpoint, s3Region string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -79,6 +88,10 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.BoolVar(&enableHA, "enable-ha", true, "Run the HA health-check loop.")
+	flag.BoolVar(&enableBackup, "enable-backup", true, "Run the backup scheduler.")
+	flag.StringVar(&s3Endpoint, "s3-endpoint", "", "Override the S3 endpoint URL (e.g. MinIO).")
+	flag.StringVar(&s3Region, "s3-region", "us-east-1", "Default S3 region for the backup client.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -187,6 +200,34 @@ func main() {
 	}
 	// +kubebuilder:scaffold:builder
 
+	if enableHA {
+		//nolint:staticcheck // old events API still widely used by operators
+		rec := mgr.GetEventRecorderFor("tsdb-operator")
+		checker := ha.New(mgr.GetClient(), rec)
+		if err := mgr.Add(runnableFunc(checker.Start)); err != nil {
+			setupLog.Error(err, "Failed to add HA checker")
+			os.Exit(1)
+		}
+	}
+	if enableBackup {
+		awsCfg, err := awsconfig.LoadDefaultConfig(ctrl.SetupSignalHandler(), awsconfig.WithRegion(s3Region))
+		if err != nil {
+			setupLog.Error(err, "Failed to load AWS config")
+			os.Exit(1)
+		}
+		s3Client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+			if s3Endpoint != "" {
+				o.BaseEndpoint = aws.String(s3Endpoint)
+				o.UsePathStyle = true
+			}
+		})
+		scheduler := backup.New(mgr.GetClient(), s3Client)
+		if err := mgr.Add(runnableFunc(scheduler.Start)); err != nil {
+			setupLog.Error(err, "Failed to add backup scheduler")
+			os.Exit(1)
+		}
+	}
+
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "Failed to set up health check")
 		os.Exit(1)
@@ -202,3 +243,8 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+// runnableFunc adapts a Start-style function to manager.Runnable.
+type runnableFunc func(ctx context.Context) error
+
+func (f runnableFunc) Start(ctx context.Context) error { return f(ctx) }
