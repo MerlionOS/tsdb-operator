@@ -1,5 +1,7 @@
 # tsdb-operator
 
+中文: [README.zh.md](README.zh.md)
+
 A Kubernetes operator that manages the full lifecycle of Prometheus clusters:
 provisioning, scaling, high availability, scheduled backups to S3-compatible
 storage, and an audit log of operator actions.
