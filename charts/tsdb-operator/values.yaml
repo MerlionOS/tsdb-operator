@@ -1,0 +1,44 @@
+image:
+  repository: ghcr.io/merlionos/tsdb-operator
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+leaderElection:
+  enabled: true
+
+features:
+  ha: true
+  backup: true
+
+# S3 defaults used by the backup scheduler. Override per-cluster via the
+# PrometheusCluster CRD's spec.backup.
+s3:
+  region: us-east-1
+  endpoint: ""  # e.g. http://minio.minio.svc:9000 for MinIO
+
+# Install the PrometheusCluster CRD as part of the chart. Set to false if
+# CRDs are managed out-of-band.
+installCRDs: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+metrics:
+  bindAddress: ":8443"
+  secure: true

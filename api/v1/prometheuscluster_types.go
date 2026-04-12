@@ -54,6 +54,27 @@ type S3BackupSpec struct {
 	CredentialsSecretRef *corev1.LocalObjectReference `json:"credentialsSecretRef,omitempty"`
 }
 
+// RemoteWriteSpec declares a Prometheus remote_write target. Fields mirror
+// the subset of the upstream Prometheus remote_write schema we render into
+// the generated prometheus.yml.
+type RemoteWriteSpec struct {
+	// URL is the remote endpoint to ship samples to.
+	// +kubebuilder:validation:Required
+	URL string `json:"url"`
+
+	// Name is an optional label for the queue (used in Prometheus metrics).
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// BasicAuthSecretRef references a Secret with keys "username" and "password".
+	// +optional
+	BasicAuthSecretRef *corev1.LocalObjectReference `json:"basicAuthSecretRef,omitempty"`
+
+	// BearerTokenSecretRef references a Secret with key "token".
+	// +optional
+	BearerTokenSecretRef *corev1.LocalObjectReference `json:"bearerTokenSecretRef,omitempty"`
+}
+
 // StorageSpec describes the PVC used by each replica.
 type StorageSpec struct {
 	// +optional
@@ -97,6 +118,10 @@ type PrometheusClusterSpec struct {
 	// Backup configuration.
 	// +optional
 	Backup S3BackupSpec `json:"backup,omitempty"`
+
+	// RemoteWrite endpoints the managed Prometheus should stream samples to.
+	// +optional
+	RemoteWrite []RemoteWriteSpec `json:"remoteWrite,omitempty"`
 }
 
 // PrometheusClusterStatus defines the observed state of PrometheusCluster.

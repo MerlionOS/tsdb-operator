@@ -13,6 +13,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,9 +34,9 @@ import (
 
 const finalizerName = "observability.merlionos.org/finalizer"
 
-// defaultPrometheusConfig is mounted into each replica when the user does not
-// supply one. It scrapes the operator itself and the replica's own /metrics.
-const defaultPrometheusConfig = `global:
+// baseConfig is the base prometheus.yml that gets augmented with per-cluster
+// remote_write blocks before being written into the ConfigMap.
+const baseConfig = `global:
   scrape_interval: 30s
   evaluation_interval: 30s
 scrape_configs:
@@ -153,14 +154,38 @@ func (r *PrometheusClusterReconciler) reconcileConfigMap(ctx context.Context, pc
 		if cm.Data == nil {
 			cm.Data = map[string]string{}
 		}
-		// Only set the default if the key isn't already populated — leaves
-		// room for users to patch their own config into the same ConfigMap.
-		if _, ok := cm.Data["prometheus.yml"]; !ok {
-			cm.Data["prometheus.yml"] = defaultPrometheusConfig
-		}
+		cm.Data["prometheus.yml"] = renderConfig(pc)
 		return controllerutil.SetControllerReference(pc, cm, r.Scheme)
 	})
 	return err
+}
+
+// renderConfig composes the prometheus.yml for a cluster by concatenating the
+// base scrape config with optional remote_write blocks rendered from
+// spec.remoteWrite. Kept string-based for readability; upgrade to yaml.Marshal
+// when the template gains conditionals.
+func renderConfig(pc *observabilityv1.PrometheusCluster) string {
+	var b strings.Builder
+	b.WriteString(baseConfig)
+	if len(pc.Spec.RemoteWrite) == 0 {
+		return b.String()
+	}
+	b.WriteString("remote_write:\n")
+	for _, rw := range pc.Spec.RemoteWrite {
+		fmt.Fprintf(&b, "  - url: %q\n", rw.URL)
+		if rw.Name != "" {
+			fmt.Fprintf(&b, "    name: %q\n", rw.Name)
+		}
+		if rw.BasicAuthSecretRef != nil {
+			fmt.Fprintf(&b, "    basic_auth:\n")
+			fmt.Fprintf(&b, "      username_file: /etc/prometheus/secrets/%s/username\n", rw.BasicAuthSecretRef.Name)
+			fmt.Fprintf(&b, "      password_file: /etc/prometheus/secrets/%s/password\n", rw.BasicAuthSecretRef.Name)
+		}
+		if rw.BearerTokenSecretRef != nil {
+			fmt.Fprintf(&b, "    bearer_token_file: /etc/prometheus/secrets/%s/token\n", rw.BearerTokenSecretRef.Name)
+		}
+	}
+	return b.String()
 }
 
 func (r *PrometheusClusterReconciler) reconcileHeadlessService(ctx context.Context, pc *observabilityv1.PrometheusCluster) error {

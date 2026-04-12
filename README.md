@@ -50,8 +50,8 @@ single declarative CRD (`PrometheusCluster`) and a small control plane.
 ## Quick start
 
 ```bash
-# 1. Spin up a local cluster and install CRDs + operator
-make dev
+# 1. Install the operator via Helm
+helm install tsdb-operator ./charts/tsdb-operator -n tsdb-operator --create-namespace
 
 # 2. Create a PrometheusCluster
 kubectl apply -f config/samples/observability_v1_prometheuscluster.yaml
@@ -125,6 +125,10 @@ grafana/dashboards/            Operator dashboard JSON
 ## Roadmap
 
 See [`ROADMAP.md`](ROADMAP.md) ([中文](ROADMAP.zh.md)).
+
+## Architecture Decision Records
+
+See [`docs/adr/`](docs/adr/) for the rationale behind key choices.
 
 ## License
 
