@@ -5,6 +5,9 @@ English: [README.md](README.md)
 一个管理 Prometheus 集群完整生命周期的 Kubernetes Operator：开通、
 扩缩容、高可用、定时备份到 S3 兼容存储、以及运维操作的审计日志。
 
+> PVC 已经有了，为什么还要 snapshot 到 S3？见
+> [`docs/BACKUPS.zh.md`](docs/BACKUPS.zh.md)（[English](docs/BACKUPS.en.md)）。
+>
 > 和 Thanos、VictoriaMetrics 的对比见
 > [`docs/COMPARISON.zh.md`](docs/COMPARISON.zh.md)（[English](docs/COMPARISON.en.md)）。
 

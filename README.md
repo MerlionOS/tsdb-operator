@@ -13,6 +13,9 @@ StatefulSets, PVCs, headless services, health checks, snapshotting, off-cluster
 backups, and a record of who changed what. `tsdb-operator` turns that into a
 single declarative CRD (`PrometheusCluster`) and a small control plane.
 
+> Why snapshot to S3 when PVCs exist? See
+> [`docs/BACKUPS.en.md`](docs/BACKUPS.en.md) ([中文](docs/BACKUPS.zh.md)).
+>
 > How does this compare to Thanos and VictoriaMetrics? See
 > [`docs/COMPARISON.en.md`](docs/COMPARISON.en.md) ([中文](docs/COMPARISON.zh.md)).
 
