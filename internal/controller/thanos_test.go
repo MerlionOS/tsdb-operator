@@ -21,6 +21,29 @@ func TestThanosSidecarDisabled(t *testing.T) {
 	}
 }
 
+func TestThanosEnabledDisablesPromCompaction(t *testing.T) {
+	r := &PrometheusClusterReconciler{}
+	sts := r.buildStatefulSet(&observabilityv1.PrometheusCluster{
+		Spec: observabilityv1.PrometheusClusterSpec{
+			Replicas: 1,
+			Thanos:   observabilityv1.ThanosSpec{Enabled: true},
+		},
+	})
+	args := sts.Spec.Template.Spec.Containers[0].Args
+	var sawMin, sawMax bool
+	for _, a := range args {
+		if a == "--storage.tsdb.min-block-duration=2h" {
+			sawMin = true
+		}
+		if a == "--storage.tsdb.max-block-duration=2h" {
+			sawMax = true
+		}
+	}
+	if !sawMin || !sawMax {
+		t.Fatalf("thanos sidecar requires compaction disabled; args: %v", args)
+	}
+}
+
 func TestThanosSidecarEnabledNoObjstore(t *testing.T) {
 	r := &PrometheusClusterReconciler{}
 	sts := r.buildStatefulSet(&observabilityv1.PrometheusCluster{

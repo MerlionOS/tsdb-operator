@@ -77,6 +77,56 @@ spec:
                 default: prom/prometheus:v2.53.0
                 description: Image is the Prometheus container image.
                 type: string
+              remoteWrite:
+                description: RemoteWrite endpoints the managed Prometheus should stream
+                  samples to.
+                items:
+                  description: |-
+                    RemoteWriteSpec declares a Prometheus remote_write target. Fields mirror
+                    the subset of the upstream Prometheus remote_write schema we render into
+                    the generated prometheus.yml.
+                  properties:
+                    basicAuthSecretRef:
+                      description: BasicAuthSecretRef references a Secret with keys
+                        "username" and "password".
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    bearerTokenSecretRef:
+                      description: BearerTokenSecretRef references a Secret with key
+                        "token".
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    name:
+                      description: Name is an optional label for the queue (used in
+                        Prometheus metrics).
+                      type: string
+                    url:
+                      description: URL is the remote endpoint to ship samples to.
+                      type: string
+                  required:
+                  - url
+                  type: object
+                type: array
               replicas:
                 default: 1
                 description: Replicas is the desired number of Prometheus replicas.
@@ -159,6 +209,34 @@ spec:
                     x-kubernetes-int-or-string: true
                   storageClassName:
                     type: string
+                type: object
+              thanos:
+                description: Thanos optionally attaches a Thanos sidecar to each replica.
+                properties:
+                  enabled:
+                    description: Enabled turns the sidecar on.
+                    type: boolean
+                  image:
+                    default: quay.io/thanos/thanos:v0.36.1
+                    description: Image is the Thanos container image.
+                    type: string
+                  objectStorageConfigSecretRef:
+                    description: |-
+                      ObjectStorageConfigSecretRef references a Secret with an
+                      "objstore.yml" key in the Thanos objstore format. Sidecar reads it
+                      via --objstore.config-file.
+                    properties:
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
                 type: object
             type: object
           status:

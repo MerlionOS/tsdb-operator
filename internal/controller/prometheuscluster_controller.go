@@ -35,12 +35,9 @@ import (
 
 const finalizerName = "observability.merlionos.org/finalizer"
 
-// baseConfig is the base prometheus.yml that gets augmented with per-cluster
-// remote_write blocks before being written into the ConfigMap.
-const baseConfig = `global:
-  scrape_interval: 30s
-  evaluation_interval: 30s
-scrape_configs:
+// scrapeConfig is the base scrape block. The global block is rendered
+// separately by renderConfig because Thanos adds external_labels to it.
+const scrapeConfig = `scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets: ['localhost:9090']
@@ -180,13 +177,22 @@ func (r *PrometheusClusterReconciler) reconcileConfigMap(ctx context.Context, pc
 	return err
 }
 
-// renderConfig composes the prometheus.yml for a cluster by concatenating the
-// base scrape config with optional remote_write blocks rendered from
-// spec.remoteWrite. Kept string-based for readability; upgrade to yaml.Marshal
-// when the template gains conditionals.
+// renderConfig composes the prometheus.yml for a cluster: one global block
+// (with Thanos external_labels when enabled), then the scrape config, then
+// optional remote_write entries from spec.remoteWrite. Kept string-based
+// for readability; upgrade to yaml.Marshal when the template gains
+// conditionals.
 func renderConfig(pc *observabilityv1.PrometheusCluster) string {
 	var b strings.Builder
-	b.WriteString(baseConfig)
+	b.WriteString("global:\n  scrape_interval: 30s\n  evaluation_interval: 30s\n")
+	if pc.Spec.Thanos.Enabled {
+		// Thanos requires uniquely-identifying external labels so samples
+		// shipped from replicas don't collide in object storage. POD_NAME
+		// expansion requires --enable-feature=expand-external-labels on
+		// Prometheus.
+		fmt.Fprintf(&b, "  external_labels:\n    cluster: %q\n    replica: ${POD_NAME:-unknown}\n", pc.Name)
+	}
+	b.WriteString(scrapeConfig)
 	if len(pc.Spec.RemoteWrite) == 0 {
 		return b.String()
 	}
@@ -255,10 +261,30 @@ func (r *PrometheusClusterReconciler) buildStatefulSet(pc *observabilityv1.Prome
 	if pc.Spec.Backup.Enabled {
 		args = append(args, "--web.enable-admin-api")
 	}
+	if pc.Spec.Thanos.Enabled {
+		// Thanos sidecar refuses to start unless Prometheus-side compaction
+		// is disabled (Thanos does its own compaction after shipping). It
+		// also requires uniquely-identifying external_labels — rendered
+		// into the ConfigMap with a ${POD_NAME} placeholder, which
+		// expand-external-labels resolves at runtime.
+		args = append(args,
+			"--storage.tsdb.min-block-duration=2h",
+			"--storage.tsdb.max-block-duration=2h",
+			"--enable-feature=expand-external-labels",
+		)
+	}
+	promEnv := []corev1.EnvVar{{
+		Name: "POD_NAME",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		},
+	}}
+
 	containers := []corev1.Container{{
 		Name:  "prometheus",
 		Image: image,
 		Args:  args,
+		Env:   promEnv,
 		Ports: []corev1.ContainerPort{{Name: "http", ContainerPort: 9090}},
 		ReadinessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
