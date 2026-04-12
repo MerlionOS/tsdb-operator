@@ -17,6 +17,9 @@ features:
 s3:
   region: us-east-1
   endpoint: ""  # e.g. http://minio.minio.svc:9000 for MinIO
+  # Name of a Secret with keys AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.
+  # Mounted via envFrom on the operator Deployment.
+  credentialsSecretName: ""
 
 # Install the PrometheusCluster CRD as part of the chart. Set to false if
 # CRDs are managed out-of-band.

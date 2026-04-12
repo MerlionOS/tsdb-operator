@@ -191,12 +191,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.PrometheusClusterReconciler{
+	reconciler := &controller.PrometheusClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "PrometheusCluster")
-		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
 
@@ -224,10 +221,16 @@ func main() {
 			}
 		})
 		scheduler := backup.New(mgr.GetClient(), s3Client)
+		reconciler.BackupSchedule = scheduler
 		if err := mgr.Add(runnableFunc(scheduler.Start)); err != nil {
 			setupLog.Error(err, "Failed to add backup scheduler")
 			os.Exit(1)
 		}
+	}
+
+	if err := reconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "PrometheusCluster")
+		os.Exit(1)
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

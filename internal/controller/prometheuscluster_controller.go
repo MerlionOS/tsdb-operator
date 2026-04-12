@@ -17,6 +17,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,10 +46,17 @@ scrape_configs:
       - targets: ['localhost:9090']
 `
 
+// BackupRegistrar is the subset of the backup scheduler the reconciler needs.
+// Decouples the controller package from internal/backup.
+type BackupRegistrar interface {
+	Register(ctx context.Context, pc *observabilityv1.PrometheusCluster) error
+}
+
 // PrometheusClusterReconciler reconciles a PrometheusCluster object.
 type PrometheusClusterReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme         *runtime.Scheme
+	BackupSchedule BackupRegistrar // optional; set when backup is enabled
 }
 
 // +kubebuilder:rbac:groups=observability.merlionos.org,resources=prometheusclusters,verbs=get;list;watch;create;update;patch;delete
@@ -82,6 +90,12 @@ func (r *PrometheusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	if r.BackupSchedule != nil && pc.Spec.Backup.Enabled {
+		if err := r.BackupSchedule.Register(ctx, &pc); err != nil {
+			return ctrl.Result{}, fmt.Errorf("register backup: %w", err)
+		}
+	}
+
 	if err := r.reconcileConfigMap(ctx, &pc); err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile configmap: %w", err)
 	}
@@ -106,15 +120,21 @@ func (r *PrometheusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, fmt.Errorf("get statefulset: %w", err)
 	}
 
-	phase := observabilityv1.PhaseActive
-	if *current.Spec.Replicas != pc.Spec.Replicas {
+	replicasChanged := *current.Spec.Replicas != pc.Spec.Replicas
+	templateChanged := !equality.Semantic.DeepEqual(current.Spec.Template.Spec, desired.Spec.Template.Spec)
+	if replicasChanged || templateChanged {
 		current.Spec.Replicas = &pc.Spec.Replicas
 		current.Spec.Template = desired.Spec.Template
 		if err := r.Update(ctx, current); err != nil {
 			return ctrl.Result{}, fmt.Errorf("update statefulset: %w", err)
 		}
+	}
+
+	phase := observabilityv1.PhaseActive
+	switch {
+	case replicasChanged:
 		phase = observabilityv1.PhaseScaling
-	} else if current.Status.ReadyReplicas < pc.Spec.Replicas {
+	case current.Status.ReadyReplicas < pc.Spec.Replicas:
 		phase = observabilityv1.PhaseProvisioning
 	}
 

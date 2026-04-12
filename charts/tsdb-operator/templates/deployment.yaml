@@ -51,6 +51,11 @@ spec:
               port: healthz
             initialDelaySeconds: 5
             periodSeconds: 10
+          {{- if .Values.s3.credentialsSecretName }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.s3.credentialsSecretName }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
