@@ -68,8 +68,9 @@ endpoint.
   CRDs; this operator deliberately doesn't implement them. Pair both
   operators in the same cluster if you want both interfaces — see
   [`MIGRATION.md`](MIGRATION.md).
-- **Reload is automatic since v0.10.0.** When the operator updates the
-  ConfigMap (because `spec.additionalScrapeConfigs` or any other
-  rendered field changed), it POSTs `/-/reload` to every Ready
-  replica. Per-pod failures are best-effort logged, not fatal — the
-  next reconcile retries, and a restart picks up the change anyway.
+- **Reload is automatic since v0.10.1.** A `config-reloader` sidecar
+  (`ghcr.io/jimmidyson/configmap-reload`) watches `/etc/prometheus`
+  inside the pod and POSTs `/-/reload` when the mounted ConfigMap
+  files change. This is the same pattern prometheus-operator uses and
+  it sidesteps the kubelet ConfigMap projection lag (which broke the
+  controller-driven approach attempted in v0.10.0).

@@ -6,6 +6,32 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.10.1] — 2026-04-14
+
+### Fixed
+
+- **v0.10.0's reload trigger raced kubelet ConfigMap projection.** The
+  reconciler POSTed `/-/reload` immediately on ConfigMap change, but
+  kubelet takes 60-90s to refresh the mounted file in the pod. The
+  reload fired against stale content and no second reload ever
+  happened, so additional scrape configs only took effect on pod
+  restart. Caught by kind verification immediately after the v0.10.0
+  tag.
+
+### Changed
+
+- Replaced the controller-driven reload with a `config-reloader`
+  sidecar container (`ghcr.io/jimmidyson/configmap-reload:v0.13.1`)
+  co-located with Prometheus. It watches `/etc/prometheus` directly
+  and POSTs `/-/reload` when files change, sidestepping the kubelet
+  projection lag entirely. Same pattern prometheus-operator uses.
+- `triggerReload` and the `HTTP` field on `PrometheusClusterReconciler`
+  are removed. `reconcileConfigMap` now returns just `error`.
+- Tests use `containerByName` instead of indexing into `Containers[0]`,
+  so future container additions don't shift assertions.
+
+[0.10.1]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.10.1
+
 ## [0.10.0] — 2026-04-14
 
 Auto-reload Prometheus when its ConfigMap changes — closes the

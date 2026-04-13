@@ -8,16 +8,33 @@ import (
 	observabilityv1 "github.com/MerlionOS/tsdb-operator/api/v1"
 )
 
+// containerByName returns the container with the given name, or nil.
+func containerByName(cs []corev1.Container, name string) *corev1.Container {
+	for i := range cs {
+		if cs[i].Name == name {
+			return &cs[i]
+		}
+	}
+	return nil
+}
+
 func TestThanosSidecarDisabled(t *testing.T) {
 	r := &PrometheusClusterReconciler{}
 	sts := r.buildStatefulSet(&observabilityv1.PrometheusCluster{
 		Spec: observabilityv1.PrometheusClusterSpec{Replicas: 1},
 	})
-	if got := len(sts.Spec.Template.Spec.Containers); got != 1 {
-		t.Fatalf("want 1 container, got %d", got)
+	cs := sts.Spec.Template.Spec.Containers
+	if got := len(cs); got != 2 {
+		t.Fatalf("want 2 containers (prometheus + reloader), got %d", got)
 	}
-	if sts.Spec.Template.Spec.Containers[0].Name != "prometheus" {
-		t.Fatalf("unexpected container: %s", sts.Spec.Template.Spec.Containers[0].Name)
+	if containerByName(cs, "prometheus") == nil {
+		t.Error("missing prometheus container")
+	}
+	if containerByName(cs, "config-reloader") == nil {
+		t.Error("missing config-reloader sidecar")
+	}
+	if containerByName(cs, "thanos-sidecar") != nil {
+		t.Error("unexpected thanos-sidecar when disabled")
 	}
 }
 
@@ -29,9 +46,12 @@ func TestThanosEnabledDisablesPromCompaction(t *testing.T) {
 			Thanos:   observabilityv1.ThanosSpec{Enabled: true},
 		},
 	})
-	args := sts.Spec.Template.Spec.Containers[0].Args
+	prom := containerByName(sts.Spec.Template.Spec.Containers, "prometheus")
+	if prom == nil {
+		t.Fatal("prometheus container missing")
+	}
 	var sawMin, sawMax bool
-	for _, a := range args {
+	for _, a := range prom.Args {
 		if a == "--storage.tsdb.min-block-duration=2h" {
 			sawMin = true
 		}
@@ -40,7 +60,7 @@ func TestThanosEnabledDisablesPromCompaction(t *testing.T) {
 		}
 	}
 	if !sawMin || !sawMax {
-		t.Fatalf("thanos sidecar requires compaction disabled; args: %v", args)
+		t.Fatalf("thanos sidecar requires compaction disabled; args: %v", prom.Args)
 	}
 }
 
@@ -52,15 +72,10 @@ func TestThanosSidecarEnabledNoObjstore(t *testing.T) {
 			Thanos:   observabilityv1.ThanosSpec{Enabled: true},
 		},
 	})
-	containers := sts.Spec.Template.Spec.Containers
-	if len(containers) != 2 {
-		t.Fatalf("want 2 containers, got %d", len(containers))
+	sidecar := containerByName(sts.Spec.Template.Spec.Containers, "thanos-sidecar")
+	if sidecar == nil {
+		t.Fatal("thanos-sidecar container missing")
 	}
-	sidecar := containers[1]
-	if sidecar.Name != "thanos-sidecar" {
-		t.Errorf("second container = %q, want thanos-sidecar", sidecar.Name)
-	}
-	// Shares the data volume with Prometheus.
 	var hasData bool
 	for _, m := range sidecar.VolumeMounts {
 		if m.Name == "data" && m.MountPath == "/prometheus" {
@@ -70,7 +85,6 @@ func TestThanosSidecarEnabledNoObjstore(t *testing.T) {
 	if !hasData {
 		t.Error("thanos sidecar should mount the data volume at /prometheus")
 	}
-	// No objstore secret → no --objstore.config-file and no extra volume.
 	for _, a := range sidecar.Args {
 		if a == "--objstore.config-file=/etc/thanos/objstore/objstore.yml" {
 			t.Error("unexpected --objstore.config-file when no secret ref is set")
@@ -95,7 +109,10 @@ func TestThanosSidecarEnabledWithObjstore(t *testing.T) {
 			},
 		},
 	})
-	sidecar := sts.Spec.Template.Spec.Containers[1]
+	sidecar := containerByName(sts.Spec.Template.Spec.Containers, "thanos-sidecar")
+	if sidecar == nil {
+		t.Fatal("thanos-sidecar container missing")
+	}
 	var sawFlag bool
 	for _, a := range sidecar.Args {
 		if a == "--objstore.config-file=/etc/thanos/objstore/objstore.yml" {

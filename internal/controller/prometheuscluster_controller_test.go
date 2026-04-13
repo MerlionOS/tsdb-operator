@@ -114,7 +114,13 @@ var _ = Describe("PrometheusCluster Controller", func() {
 
 		var sts appsv1.StatefulSet
 		Expect(k8sClient.Get(ctx, typeNamespacedName, &sts)).To(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[0].Args).To(ContainElement("--web.enable-admin-api"))
+		var promArgs []string
+		for _, c := range sts.Spec.Template.Spec.Containers {
+			if c.Name == "prometheus" {
+				promArgs = c.Args
+			}
+		}
+		Expect(promArgs).To(ContainElement("--web.enable-admin-api"))
 	})
 
 	It("scales the StatefulSet when spec.replicas changes", func() {

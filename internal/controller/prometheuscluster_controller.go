@@ -13,9 +13,7 @@ package controller
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -56,10 +54,6 @@ type PrometheusClusterReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
 	BackupSchedule BackupRegistrar // optional; set when backup is enabled
-
-	// HTTP is the client used for /-/reload calls. Defaulted lazily to
-	// http.DefaultClient when nil; tests inject a fake transport.
-	HTTP *http.Client
 }
 
 // +kubebuilder:rbac:groups=observability.merlionos.org,resources=prometheusclusters,verbs=get;list;watch;create;update;patch;delete
@@ -99,13 +93,8 @@ func (r *PrometheusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 	}
 
-	cmChanged, err := r.reconcileConfigMap(ctx, &pc)
-	if err != nil {
+	if _, err := r.reconcileConfigMap(ctx, &pc); err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile configmap: %w", err)
-	}
-	if cmChanged {
-		// Fire-and-forget per-pod reload. Failures are logged inside.
-		r.triggerReload(ctx, &pc)
 	}
 	if err := r.reconcileHeadlessService(ctx, &pc); err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile service: %w", err)
@@ -113,7 +102,7 @@ func (r *PrometheusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	current := &appsv1.StatefulSet{}
 	desired := r.buildStatefulSet(&pc)
-	err = r.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
+	err := r.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
 	switch {
 	case apierrors.IsNotFound(err):
 		if err := controllerutil.SetControllerReference(&pc, desired, r.Scheme); err != nil {
@@ -200,40 +189,41 @@ func (r *PrometheusClusterReconciler) reconcileConfigMap(ctx context.Context, pc
 	return op == controllerutil.OperationResultUpdated, nil
 }
 
-// triggerReload POSTs /-/reload to every Ready pod of the cluster. Best-
-// effort: per-pod failures are logged but never propagated (the next
-// reconcile will retry; pods restarting eventually pick up the config
-// anyway).
-func (r *PrometheusClusterReconciler) triggerReload(ctx context.Context, pc *observabilityv1.PrometheusCluster) {
-	log := logf.FromContext(ctx).WithValues("cluster", pc.Name)
-	var pods corev1.PodList
-	if err := r.List(ctx, &pods, client.InNamespace(pc.Namespace), client.MatchingLabels{
-		"app.kubernetes.io/instance": pc.Name,
-	}); err != nil {
-		log.Error(err, "list pods for reload")
-		return
+// reloaderSidecar is co-located with Prometheus, watches the mounted
+// /etc/prometheus directory, and POSTs /-/reload when files change. We use
+// a sidecar (not a reconciler-driven reload) because kubelet ConfigMap
+// projection lags 60-90s behind the API server, so any reload triggered
+// by the controller would race the mount update.
+const reloaderImage = "ghcr.io/jimmidyson/configmap-reload:v0.13.1"
+
+func buildReloaderSidecar() corev1.Container {
+	return corev1.Container{
+		Name:  "config-reloader",
+		Image: reloaderImage,
+		Args: []string{
+			"--volume-dir=/etc/prometheus",
+			"--webhook-method=POST",
+			"--webhook-url=http://127.0.0.1:9090/-/reload",
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "config", MountPath: "/etc/prometheus", ReadOnly: true},
+		},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    *resourceMustParseOrZero("10m"),
+				corev1.ResourceMemory: *resourceMustParseOrZero("16Mi"),
+			},
+		},
 	}
-	httpClient := r.HTTP
-	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 5 * time.Second}
+}
+
+func resourceMustParseOrZero(s string) *resource.Quantity {
+	q, err := resource.ParseQuantity(s)
+	if err != nil {
+		var zero resource.Quantity
+		return &zero
 	}
-	for i := range pods.Items {
-		pod := &pods.Items[i]
-		if pod.Status.PodIP == "" {
-			continue
-		}
-		url := fmt.Sprintf("http://%s:9090/-/reload", pod.Status.PodIP)
-		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
-		resp, err := httpClient.Do(req)
-		if err != nil {
-			log.Error(err, "reload failed", "pod", pod.Name)
-			continue
-		}
-		_ = resp.Body.Close()
-		if resp.StatusCode >= 400 {
-			log.Info("reload returned non-2xx", "pod", pod.Name, "status", resp.StatusCode)
-		}
-	}
+	return &q
 }
 
 // additionalScrapeFile is the ConfigMap key (and basename inside the
@@ -367,7 +357,7 @@ func (r *PrometheusClusterReconciler) buildStatefulSet(pc *observabilityv1.Prome
 		},
 	}}
 
-	containers := []corev1.Container{{
+	containers := []corev1.Container{buildReloaderSidecar(), {
 		Name:  "prometheus",
 		Image: image,
 		Args:  args,

@@ -63,7 +63,9 @@ reload 日志和 `/api/v1/status/config` 暴露出来。
 - **不支持 PodMonitor / ServiceMonitor。** 那是 prometheus-operator
   的 CRD，本 operator 故意不实现。同时跑两个 operator 即可同时拥有
   两套接口 —— 见 [`MIGRATION.zh.md`](MIGRATION.zh.md)。
-- **v0.10.0 起 reload 是自动的。** operator 更新 ConfigMap
-  （`spec.additionalScrapeConfigs` 或任何其他渲染字段变更）时，会
-  对每个 Ready 副本 POST `/-/reload`。单 Pod 失败只 log 不算硬错
-  —— 下次 reconcile 会重试，重启后也会自然加载新配置。
+- **v0.10.1 起 reload 是自动的。** Pod 里跑一个
+  `config-reloader` sidecar（`ghcr.io/jimmidyson/configmap-reload`）
+  watch `/etc/prometheus`，挂载的 ConfigMap 文件变化时 POST
+  `/-/reload`。和 prometheus-operator 同款方案，绕开 kubelet 的
+  ConfigMap projection 延迟（这个延迟搞挂了 v0.10.0 的 controller
+  驱动方案）。
