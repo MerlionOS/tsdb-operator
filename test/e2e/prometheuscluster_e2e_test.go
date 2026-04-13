@@ -29,8 +29,23 @@ const (
 
 var _ = Describe("PrometheusCluster lifecycle", Ordered, func() {
 	BeforeAll(func() {
-		cmd := exec.Command("kubectl", "create", "ns", testNS)
-		_, _ = utils.Run(cmd) // idempotent: ignore if already exists
+		// Make sure CRDs and the operator are present regardless of which
+		// Describe ran first. Both commands are idempotent.
+		_, err := utils.Run(exec.Command("make", "install"))
+		Expect(err).NotTo(HaveOccurred(), "make install (CRDs)")
+		_, err = utils.Run(exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", managerImage)))
+		Expect(err).NotTo(HaveOccurred(), "make deploy (operator)")
+
+		// Wait for the operator to be Ready before exercising CR behavior.
+		Eventually(func(g Gomega) {
+			cmd := exec.Command("kubectl", "-n", "tsdb-operator-system",
+				"rollout", "status", "deployment/tsdb-operator-controller-manager",
+				"--timeout=10s")
+			_, err := utils.Run(cmd)
+			g.Expect(err).NotTo(HaveOccurred())
+		}, 3*time.Minute, 5*time.Second).Should(Succeed())
+
+		_, _ = utils.Run(exec.Command("kubectl", "create", "ns", testNS))
 	})
 
 	AfterAll(func() {
