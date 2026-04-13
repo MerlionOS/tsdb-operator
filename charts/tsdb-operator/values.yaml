@@ -13,6 +13,18 @@ features:
   backup: true
   api: true
   audit: false   # requires audit.dsnSecretRef when true
+  webhook: false # validating admission webhook; requires cert-manager
+
+# Validating admission webhook. When enabled, a cert-manager Issuer +
+# Certificate produce a TLS secret mounted into the operator, and a
+# ValidatingWebhookConfiguration with the cert-manager CA-injection
+# annotation is installed.
+webhook:
+  secretName: tsdb-operator-webhook-tls
+  issuerRef:
+    kind: Issuer
+    name: tsdb-operator-webhook-selfsigned
+  failurePolicy: Fail
 
 # Audit log (PostgreSQL). dsnSecretRef points at a Secret with key "dsn"
 # holding a postgres:// URL. retentionDays = 0 keeps everything.

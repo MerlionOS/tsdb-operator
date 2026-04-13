@@ -1,0 +1,73 @@
+{{- if .Values.features.webhook }}
+{{- if eq .Values.webhook.issuerRef.name "tsdb-operator-webhook-selfsigned" }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: tsdb-operator-webhook-selfsigned
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tsdb-operator.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+{{- end }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "tsdb-operator.fullname" . }}-webhook
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tsdb-operator.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.webhook.secretName }}
+  issuerRef:
+    kind: {{ .Values.webhook.issuerRef.kind }}
+    name: {{ .Values.webhook.issuerRef.name }}
+  dnsNames:
+    - {{ include "tsdb-operator.fullname" . }}-webhook
+    - {{ include "tsdb-operator.fullname" . }}-webhook.{{ .Release.Namespace }}
+    - {{ include "tsdb-operator.fullname" . }}-webhook.{{ .Release.Namespace }}.svc
+    - {{ include "tsdb-operator.fullname" . }}-webhook.{{ .Release.Namespace }}.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tsdb-operator.fullname" . }}-webhook
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tsdb-operator.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "tsdb-operator.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: webhook
+      port: 443
+      targetPort: webhook
+      protocol: TCP
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "tsdb-operator.fullname" . }}-validating
+  labels:
+    {{- include "tsdb-operator.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "tsdb-operator.fullname" . }}-webhook
+webhooks:
+  - name: vprometheuscluster.merlionos.org
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: {{ .Values.webhook.failurePolicy }}
+    rules:
+      - apiGroups: ["observability.merlionos.org"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["prometheusclusters"]
+    clientConfig:
+      service:
+        name: {{ include "tsdb-operator.fullname" . }}-webhook
+        namespace: {{ .Release.Namespace }}
+        path: /validate-observability-merlionos-org-v1-prometheuscluster
+        port: 443
+{{- end }}

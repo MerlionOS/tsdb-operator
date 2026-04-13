@@ -45,6 +45,7 @@ import (
 	"github.com/MerlionOS/tsdb-operator/internal/backup"
 	"github.com/MerlionOS/tsdb-operator/internal/controller"
 	"github.com/MerlionOS/tsdb-operator/internal/ha"
+	tsdbwebhook "github.com/MerlionOS/tsdb-operator/internal/webhook"
 	apisrv "github.com/MerlionOS/tsdb-operator/pkg/api"
 	// +kubebuilder:scaffold:imports
 )
@@ -70,6 +71,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var enableWebhook bool
 	var enableHA, enableBackup, enableAPI bool
 	var apiAddr, apiTLSCertDir, apiNamespace string
 	var s3Endpoint, s3Region string
@@ -95,6 +97,8 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.BoolVar(&enableHA, "enable-ha", true, "Run the HA health-check loop.")
 	flag.BoolVar(&enableBackup, "enable-backup", true, "Run the backup scheduler.")
+	flag.BoolVar(&enableWebhook, "enable-webhook", false,
+		"Run the validating admission webhook. Requires --webhook-cert-path.")
 	flag.BoolVar(&enableAPI, "enable-api", true, "Run the REST API server.")
 	flag.StringVar(&apiAddr, "api-address", ":8080", "Address for the REST API server.")
 	flag.StringVar(&apiTLSCertDir, "api-tls-cert-dir", "",
@@ -259,6 +263,13 @@ func main() {
 	if err := reconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "PrometheusCluster")
 		os.Exit(1)
+	}
+
+	if enableWebhook {
+		if err := tsdbwebhook.Register(mgr); err != nil {
+			setupLog.Error(err, "Failed to register validating webhook")
+			os.Exit(1)
+		}
 	}
 
 	var auditLogger *audit.Logger

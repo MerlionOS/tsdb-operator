@@ -6,6 +6,32 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-04-13
+
+Admission-time validation. Invalid specs are now rejected at
+`kubectl apply` time instead of crashing the reconciler or silently
+never firing a cron. Opt-in behind `features.webhook=true`.
+
+### Added
+
+- `internal/webhook.PrometheusClusterValidator` — validating admission
+  webhook (controller-runtime typed `Validator[T]`). Rejects:
+  - `spec.replicas < 1`
+  - `spec.backup.enabled=true` with empty `spec.backup.bucket`
+  - `spec.backup.schedule` that fails `cron.ParseStandard`
+  - `spec.remoteWrite[].url` empty
+- `cmd/main.go` flag `--enable-webhook`; uses the existing
+  `--webhook-cert-path` plumbing.
+- Helm chart: `features.webhook`, `webhook.*` values. When enabled,
+  the chart creates a cert-manager `Issuer`+`Certificate` (self-signed
+  default) + Service + `ValidatingWebhookConfiguration` with the
+  `cert-manager.io/inject-ca-from` annotation.
+- Unit tests covering each rejection path + the happy path.
+- Verified on kind: `kubectl apply` of invalid specs gets the webhook's
+  specific error message.
+
+[0.7.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.7.0
+
 ## [0.6.0] — 2026-04-13
 
 Real backups. Closes the biggest honesty gap in the project: from v0.1.0

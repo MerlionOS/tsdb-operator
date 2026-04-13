@@ -27,6 +27,10 @@ spec:
             - --enable-ha={{ .Values.features.ha }}
             - --enable-backup={{ .Values.features.backup }}
             - --enable-api={{ .Values.features.api }}
+            {{- if .Values.features.webhook }}
+            - --enable-webhook=true
+            - --webhook-cert-path=/etc/tsdb-operator/webhook-tls
+            {{- end }}
             {{- if .Values.features.audit }}
             - --audit-retention-days={{ .Values.audit.retentionDays }}
             {{- end }}
@@ -55,11 +59,23 @@ spec:
               containerPort: 8080
               protocol: TCP
             {{- end }}
-          {{- if and .Values.features.api .Values.api.tls.enabled }}
+            {{- if .Values.features.webhook }}
+            - name: webhook
+              containerPort: 9443
+              protocol: TCP
+            {{- end }}
+          {{- if or (and .Values.features.api .Values.api.tls.enabled) .Values.features.webhook }}
           volumeMounts:
+            {{- if and .Values.features.api .Values.api.tls.enabled }}
             - name: api-tls
               mountPath: /etc/tsdb-operator/api-tls
               readOnly: true
+            {{- end }}
+            {{- if .Values.features.webhook }}
+            - name: webhook-tls
+              mountPath: /etc/tsdb-operator/webhook-tls
+              readOnly: true
+            {{- end }}
           {{- end }}
           livenessProbe:
             httpGet:
@@ -90,11 +106,18 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-      {{- if and .Values.features.api .Values.api.tls.enabled }}
+      {{- if or (and .Values.features.api .Values.api.tls.enabled) .Values.features.webhook }}
       volumes:
+        {{- if and .Values.features.api .Values.api.tls.enabled }}
         - name: api-tls
           secret:
             secretName: {{ .Values.api.tls.secretName }}
+        {{- end }}
+        {{- if .Values.features.webhook }}
+        - name: webhook-tls
+          secret:
+            secretName: {{ .Values.webhook.secretName }}
+        {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
