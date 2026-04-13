@@ -68,9 +68,33 @@ status:
 | GET    | `/api/clustersets`            | 列出全部 Set          |
 | GET    | `/api/clustersets/:name`      | 看某个 Set 的详情      |
 
+## `backupTemplate` overlay（v0.8.0 起）
+
+当 Set 带 `spec.backupTemplate` 时，Set reconciler 按下面的顺序把它
+覆盖到匹配的成员上：
+
+1. **必须有 template。** `spec.backupTemplate` 为 nil 时啥都不做。
+2. **opt-out 最高。** 成员带注解
+   `observability.merlionos.org/clusterset-opt-out: "true"` 时永远
+   不动它。
+3. **成员显式声明胜出。** 成员 `spec.backup.enabled` 已经是 `true`
+   的保留自己的配置。
+4. **否则**：成员的 `spec.backup` 被整体替换成 template（`enabled:
+   true`），并打上注解
+   `observability.merlionos.org/clusterset: <set-name>` 便于追溯。
+
+`PrometheusCluster` reconciler 通过自己的 watch 感知到变更，备份
+scheduler 在下一次 reconcile 时注册 cron。
+
+### 说明
+
+- **按成员整体取舍，不做字段级合并**（Go 零值和"未设置"不用指针
+  包装就没法区分）。成员要么整体继承，要么整体自治。
+- 删除 Set **不会**撤销已经 overlay 的配置。这是故意的 —— 删 Set
+  时悄悄关掉备份比留着跑危险得多。
+- 成员事后把 `enabled` 改成 `true` 等于把所有权要回来：下一次 Set
+  reconcile 就不再动它。
+
 ## 这一版**不**做的事
 
-- **自动把** `backupTemplate` patch 进匹配到的 `PrometheusCluster`。字段
-  在 spec 里记下了，但成员 CR 还得自己写 `spec.backup`。自动 overlay 留到
-  下一版做；这样用户能看到策略意图，但 Set 不会悄悄改用户的 CR。
 - 跨 Kubernetes 集群联邦。仅限单个 Kubernetes 集群。

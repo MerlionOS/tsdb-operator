@@ -6,6 +6,34 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-04-13
+
+`PrometheusClusterSet.spec.backupTemplate` now actually takes effect on
+member CRs. Closes the Deferred item from v0.5.0.
+
+### Added
+
+- `PrometheusClusterSetReconciler.overlayBackup`: copies `spec.backupTemplate`
+  onto each matched member whose own `spec.backup.enabled` is false and
+  that does not carry the opt-out annotation. Stamps
+  `observability.merlionos.org/clusterset: <set-name>` for traceability.
+- `OptOutAnnotation` constant
+  (`observability.merlionos.org/clusterset-opt-out`): members with value
+  `"true"` are never touched by any Set.
+- Three new envtest specs covering overlay / opt-out / member-wins.
+- `docs/CLUSTERSET.{en,zh}.md` grew an **Overlay rules** section plus
+  the non-obvious edge cases (deletion doesn't unwind, ownership
+  transfer back to the user).
+
+### Policy (all-or-nothing per member)
+
+- Member wins when `spec.backup.enabled` is already true.
+- Opt-out annotation always wins.
+- Otherwise the member's `spec.backup` is replaced wholesale with the
+  template plus `enabled: true`. No field-level merge.
+
+[0.8.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.8.0
+
 ## [0.7.0] — 2026-04-13
 
 Admission-time validation. Invalid specs are now rejected at

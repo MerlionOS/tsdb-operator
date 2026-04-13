@@ -34,6 +34,14 @@ type PrometheusClusterSetReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// OptOutAnnotation, when present and "true" on a PrometheusCluster, prevents
+// any PrometheusClusterSet from overlaying its backupTemplate onto that CR.
+const OptOutAnnotation = "observability.merlionos.org/clusterset-opt-out"
+
+// ManagedByAnnotation records the name of the Set that last overlaid this
+// member's backup spec. Informational; not used for ownership.
+const ManagedByAnnotation = "observability.merlionos.org/clusterset"
+
 // +kubebuilder:rbac:groups=observability.merlionos.org,resources=prometheusclustersets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=observability.merlionos.org,resources=prometheusclustersets/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=observability.merlionos.org,resources=prometheusclustersets/finalizers,verbs=update
@@ -81,6 +89,9 @@ func (r *PrometheusClusterSetReconciler) Reconcile(ctx context.Context, req ctrl
 		if !clusterSel.Matches(labels.Set(pc.Labels)) {
 			continue
 		}
+		if err := r.overlayBackup(ctx, &set, pc); err != nil {
+			log.Error(err, "overlay backup", "cluster", pc.Namespace+"/"+pc.Name)
+		}
 		members = append(members, observabilityv1.SetMember{
 			Namespace: pc.Namespace,
 			Name:      pc.Name,
@@ -124,6 +135,39 @@ func (r *PrometheusClusterSetReconciler) allowedNamespaces(ctx context.Context, 
 		}
 	}
 	return out, nil
+}
+
+// overlayBackup copies the Set's backupTemplate onto the member's
+// spec.backup when the overlay rules apply. Rules, in order:
+//
+//  1. No-op if the Set has no backupTemplate.
+//  2. No-op if the member carries the opt-out annotation.
+//  3. No-op if the member has explicitly enabled backup (member wins).
+//  4. Otherwise: replace member.Spec.Backup with the template, stamp the
+//     managed-by annotation, and Update. The PrometheusCluster reconciler
+//     picks up the change via its watch and the backup scheduler registers
+//     the cron on next reconcile.
+func (r *PrometheusClusterSetReconciler) overlayBackup(ctx context.Context, set *observabilityv1.PrometheusClusterSet, pc *observabilityv1.PrometheusCluster) error {
+	if set.Spec.BackupTemplate == nil {
+		return nil
+	}
+	if pc.Annotations[OptOutAnnotation] == "true" {
+		return nil
+	}
+	if pc.Spec.Backup.Enabled {
+		return nil
+	}
+
+	desired := *set.Spec.BackupTemplate
+	desired.Enabled = true
+
+	if pc.Annotations == nil {
+		pc.Annotations = map[string]string{}
+	}
+	pc.Annotations[ManagedByAnnotation] = set.Name
+	pc.Spec.Backup = desired
+
+	return r.Update(ctx, pc)
 }
 
 func selectorFor(s *metav1.LabelSelector) (labels.Selector, error) {

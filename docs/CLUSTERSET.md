@@ -72,12 +72,39 @@ The Set re-reconciles whenever any matching `PrometheusCluster` changes
 | GET    | `/api/clustersets`            | List all Sets            |
 | GET    | `/api/clustersets/:name`      | Get one Set with status  |
 
+## `backupTemplate` overlay (v0.8.0+)
+
+When a Set carries a `spec.backupTemplate`, the Set reconciler copies it
+onto matched members under the following rules, in order:
+
+1. **Template must be set.** No-op if `spec.backupTemplate` is nil.
+2. **Opt-out wins.** A member with annotation
+   `observability.merlionos.org/clusterset-opt-out: "true"` is never
+   touched.
+3. **Explicit member wins.** A member whose `spec.backup.enabled` is
+   already `true` keeps its own config.
+4. **Otherwise**: the member's `spec.backup` is replaced wholesale by
+   the template (with `enabled: true`), and an annotation
+   `observability.merlionos.org/clusterset: <set-name>` is stamped for
+   traceability.
+
+The `PrometheusCluster` reconciler picks up the mutation through its own
+watch, so the backup scheduler registers the cron entry on the next
+reconcile.
+
+### Notes
+
+- This is **all-or-nothing per member**. We don't do field-level merge
+  (Go zero values are indistinguishable from "unset" without pointer
+  plumbing on every backup field). Members either fully inherit or
+  fully own.
+- Deleting the Set **does not** remove the overlay from its former
+  members. That's deliberate — silently disabling backups on delete is
+  a bigger footgun than leaving them running.
+- Setting `enabled: true` on a member after an overlay transfers
+  ownership back to the user: the next Set reconcile leaves it alone.
+
 ## What this release does NOT do
 
-- **Auto-patch** `backupTemplate` into matched `PrometheusCluster`
-  resources. The field is recorded in the spec but member CRs still need
-  their own `spec.backup` filled in. Auto-overlay is planned for a
-  follow-up release; this lets users see the policy intent without the
-  Set silently mutating their CRs.
 - Cross-cluster (multi-Kubernetes) federation. Single Kubernetes cluster
   only.
