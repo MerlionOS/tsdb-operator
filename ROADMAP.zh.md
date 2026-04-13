@@ -6,6 +6,29 @@ English: [ROADMAP.md](ROADMAP.md)
 
 ## 已交付
 
+### v0.10.1 — 2026-04-14
+
+`config-reloader` sidecar 替代 v0.10.0 的 controller 驱动 reload
+（race kubelet 的 ConfigMap projection 延迟）。和 prometheus-operator
+同款。
+
+### v0.10.0 — 2026-04-14
+
+ConfigMap 内容变更时自动 reload Prometheus（被 v0.10.1 的 sidecar
+方案取代）。
+
+### v0.9.1 — 2026-04-14
+
+把 `additional-scrape-configs.yml` 包到 `scrape_configs:` key 下，让
+Prometheus 2.43+ 的 `scrape_config_files` 真的能加载。v0.9.0 写的是
+裸 list，CrashLoop。
+
+### v0.9.0 — 2026-04-14
+
+`spec.additionalScrapeConfigs` —— 用户面的自定义抓取条目通过
+`scrape_config_files` 合并进生成的 `prometheus.yml`，不需要手改
+ConfigMap。
+
 ### v0.8.0 — 2026-04-13
 
 `PrometheusClusterSet.spec.backupTemplate` 真正投射到成员 CR。成员
@@ -51,13 +74,24 @@ Hardening。REST API 接入 manager + cert-manager TLS；kind 验证暴露的
 
 逐 release 明细见 [`CHANGELOG.md`](CHANGELOG.md)。
 
-## 下一个版本 v0.9.0
+## 下一阶段 —— v1.0 准备
 
-- [ ] **可组合的抓取配置。** 用户面的 `spec.additionalScrapeConfigs`
-  （inline YAML 或 Secret 引用），reconciler 合并进生成的
-  `prometheus.yml`，不用手改 ConfigMap。今天 operator 自己拥有
-  ConfigMap、每次 reconcile 都会覆写，自定义抓取就很别扭，这一项
-  把这个坑填了。
+从加 feature 模式切到稳定模式。Milestone 4 全部交付，Later 里若干项
+（auto-overlay、scrape config layering、sidecar reload）也都做了。
+该把 API surface 锁死，决定 `v1` 究竟意味着什么。
+
+- [ ] **API 稳定性 review。** 把 `PrometheusCluster`、
+  `PrometheusClusterSet`、`RemoteWriteSpec`、`S3BackupSpec`、
+  `ThanosSpec`、`StorageSpec` 上每个字段过一遍。明确 v1 里哪些
+  `+optional` 哪些 `+required`，写出 semver 保证。
+- [ ] **Breaking change 清单。** 在 v1 把 schema 冻死之前应该改名
+  的东西（比如 `additionalScrapeConfigs` 是不是该换成复数列表，
+  避免之后再 refactor）。
+- [ ] **Conversion webhook 决策。** v1 是 break-rewrite（`v1` 与
+  `v1alpha1` 并存 + conversion）还是当前 schema 已经够好可以原地升级？
+- [ ] **Deprecation 政策。** v1 之后字段废弃流程（提前一版告警 +
+  alpha 注解）。
+- [ ] **方案写到 `docs/V1-PREP.md`。**
 
 ## Non-goals（明确不做的事）
 

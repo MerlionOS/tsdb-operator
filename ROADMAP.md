@@ -6,11 +6,33 @@ What's shipped, what's next, what we're deliberately not doing.
 
 ## Shipped
 
+### v0.10.1 — 2026-04-14
+
+`config-reloader` sidecar replaces the controller-driven reload from
+v0.10.0 (which raced kubelet's ConfigMap projection lag). Same pattern
+prometheus-operator uses.
+
+### v0.10.0 — 2026-04-14
+
+Auto-reload Prometheus on ConfigMap content change (superseded by
+v0.10.1's sidecar approach).
+
+### v0.9.1 — 2026-04-14
+
+Wrap `additional-scrape-configs.yml` under a `scrape_configs:` key so
+Prometheus 2.43+ `scrape_config_files` actually accepts it. v0.9.0
+wrote a bare list and CrashLooped.
+
+### v0.9.0 — 2026-04-14
+
+`spec.additionalScrapeConfigs` — user-side custom scrape entries
+merged into the generated `prometheus.yml` via `scrape_config_files`,
+no hand-editing the ConfigMap.
+
 ### v0.8.0 — 2026-04-13
 
-`PrometheusClusterSet.spec.backupTemplate` now actually projects onto
-member CRs. Per-member opt-out via annotation; member's own
-`backup.enabled=true` always wins.
+`PrometheusClusterSet.spec.backupTemplate` projects onto member CRs
+with opt-out annotation; member's own `backup.enabled=true` always wins.
 
 ### v0.7.0 — 2026-04-13
 
@@ -54,14 +76,27 @@ First tagged release. Everything core.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for per-release detail.
 
-## Next up — v0.9.0
+## Next up — v1.0 preparation
 
-- [ ] **Per-cluster scrape config layering.** A user-facing
-  `spec.additionalScrapeConfigs` (inline YAML or Secret reference) that
-  the reconciler merges into the generated `prometheus.yml` without
-  users hand-editing the ConfigMap. Today the operator owns the
-  ConfigMap and overwrites it on every reconcile, which makes it
-  awkward to add custom scrape jobs. This closes that gap.
+Stability mode rather than feature mode. The feature set has covered
+every Milestone-4 item plus several Later items (auto-overlay, scrape
+config layering, sidecar reload). Time to lock down the API surface
+and decide what `v1` means.
+
+- [ ] **API stability review.** Walk every field on `PrometheusCluster`,
+  `PrometheusClusterSet`, `RemoteWriteSpec`, `S3BackupSpec`,
+  `ThanosSpec`, `StorageSpec`. Mark which are `+optional` vs `+required`
+  in v1, document semver guarantees.
+- [ ] **Breaking change inventory.** Anything that should be renamed
+  before v1 freezes the schema (e.g. consider whether
+  `additionalScrapeConfigs` should be plural-typed list now to avoid
+  later refactor).
+- [ ] **Conversion webhook decision.** Will v1 ship as a breaking
+  rewrite (`v1` next to `v1alpha1`) requiring conversion, or is the
+  current schema close enough to promote in place?
+- [ ] **Deprecation policy.** Document how fields will be removed
+  post-v1 (one-version warning + alpha annotation).
+- [ ] **Plan written up under `docs/V1-PREP.md`.**
 
 ## Non-goals
 

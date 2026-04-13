@@ -88,6 +88,10 @@ single declarative CRD (`PrometheusCluster`) and a small control plane.
 > Adding custom scrape configs without hand-editing the ConfigMap:
 > [`docs/SCRAPE-CONFIGS.md`](docs/SCRAPE-CONFIGS.md)
 > ([中文](docs/SCRAPE-CONFIGS.zh.md)).
+>
+> Plan for the v1.0 API freeze:
+> [`docs/V1-PREP.md`](docs/V1-PREP.md)
+> ([中文](docs/V1-PREP.zh.md)).
 
 ## Architecture
 

@@ -30,6 +30,10 @@ English: [README.md](README.md)
 > 不手改 ConfigMap 也能加自定义抓取配置：
 > [`docs/SCRAPE-CONFIGS.zh.md`](docs/SCRAPE-CONFIGS.zh.md)
 > （[English](docs/SCRAPE-CONFIGS.md)）。
+>
+> v1.0 API 冻结的准备方案：
+> [`docs/V1-PREP.zh.md`](docs/V1-PREP.zh.md)
+> （[English](docs/V1-PREP.md)）。
 
 ## 它解决什么问题
 
