@@ -6,6 +6,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.9.1] — 2026-04-14
+
+### Fixed
+
+- `additional-scrape-configs.yml` is now wrapped under a `scrape_configs:`
+  key before being written to the ConfigMap. Prometheus 2.43+
+  `scrape_config_files` rejects a bare top-level YAML list with
+  `cannot unmarshal !!seq into config.ScrapeConfigs`. v0.9.0 produced
+  exactly that and the Prometheus pod CrashLooped on config load.
+  Caught by kind verification immediately after the v0.9.0 tag.
+- The CR-facing contract is unchanged — users still pass a bare list of
+  scrape entries; the wrapping is done by the operator.
+
+[0.9.1]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.9.1
+
 ## [0.9.0] — 2026-04-14
 
 User-side custom scrape config without hand-editing the operator's

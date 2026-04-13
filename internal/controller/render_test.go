@@ -67,6 +67,15 @@ func TestRenderConfigNoScrapeConfigFilesWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestWrapScrapeConfigsAddsRequiredKey(t *testing.T) {
+	in := "- job_name: my-app\n  static_configs:\n    - targets: ['x:1']\n"
+	out := wrapScrapeConfigs(in)
+	expected := "scrape_configs:\n  - job_name: my-app\n    static_configs:\n      - targets: ['x:1']\n"
+	if out != expected {
+		t.Fatalf("unexpected wrap output:\nGOT:\n%s\nWANT:\n%s", out, expected)
+	}
+}
+
 func TestRenderConfigRemoteWriteBearerToken(t *testing.T) {
 	pc := &observabilityv1.PrometheusCluster{
 		Spec: observabilityv1.PrometheusClusterSpec{

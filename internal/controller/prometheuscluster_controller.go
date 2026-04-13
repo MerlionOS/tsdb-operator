@@ -173,7 +173,7 @@ func (r *PrometheusClusterReconciler) reconcileConfigMap(ctx context.Context, pc
 		}
 		cm.Data["prometheus.yml"] = renderConfig(pc)
 		if pc.Spec.AdditionalScrapeConfigs != "" {
-			cm.Data[additionalScrapeFile] = pc.Spec.AdditionalScrapeConfigs
+			cm.Data[additionalScrapeFile] = wrapScrapeConfigs(pc.Spec.AdditionalScrapeConfigs)
 		} else {
 			delete(cm.Data, additionalScrapeFile)
 		}
@@ -185,6 +185,25 @@ func (r *PrometheusClusterReconciler) reconcileConfigMap(ctx context.Context, pc
 // additionalScrapeFile is the ConfigMap key (and basename inside the
 // /etc/prometheus mount) for spec.additionalScrapeConfigs.
 const additionalScrapeFile = "additional-scrape-configs.yml"
+
+// wrapScrapeConfigs takes the user's bare YAML list of scrape entries and
+// wraps it under a `scrape_configs:` key so the file matches what
+// Prometheus 2.43+ scrape_config_files expects (a YAML object whose
+// `scrape_configs` field is a list, not a bare list at the top level).
+func wrapScrapeConfigs(s string) string {
+	var b strings.Builder
+	b.WriteString("scrape_configs:\n")
+	for line := range strings.SplitSeq(strings.TrimRight(s, "\n"), "\n") {
+		if line == "" {
+			b.WriteByte('\n')
+			continue
+		}
+		b.WriteString("  ")
+		b.WriteString(line)
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
 
 // renderConfig composes the prometheus.yml for a cluster: one global block
 // (with Thanos external_labels when enabled), then the scrape config, then
