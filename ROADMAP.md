@@ -6,6 +6,12 @@ What's shipped, what's next, what we're deliberately not doing.
 
 ## Shipped
 
+### v0.8.0 — 2026-04-13
+
+`PrometheusClusterSet.spec.backupTemplate` now actually projects onto
+member CRs. Per-member opt-out via annotation; member's own
+`backup.enabled=true` always wins.
+
 ### v0.7.0 — 2026-04-13
 
 Validating admission webhook. Invalid `spec.replicas`, missing
@@ -48,35 +54,33 @@ First tagged release. Everything core.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for per-release detail.
 
-## Next up — v0.8.0
+## Next up — v0.9.0
 
-- [ ] **Auto-overlay `backupTemplate` onto Set members.** v0.5.0 records
-  the template in spec but doesn't mutate member CRs. This closes that
-  loop so `PrometheusClusterSet` becomes a real policy object, not just
-  a dashboard.
-  - Policy: overlay only when the member's `spec.backup.enabled` is
-    unset / false; members always win on any field they explicitly set.
-  - Opt-out: per-member annotation
-    `observability.merlionos.org/clusterset-opt-out: "true"`.
-  - Scope: one new Set→member projection pass in the Set reconciler,
-    conflict detection, owner-reference decision (don't re-parent,
-    just label), envtest coverage.
-
-## Later
-
-Smaller scope next to v0.8.0; not yet committed to a release.
-
-- [ ] **Per-cluster scrape config layering.** `spec.additionalScrapeConfigs`
-  (inline YAML or secret ref) merged into the generated `prometheus.yml`
-  without users hand-editing the ConfigMap. Highest user value among the
-  remaining items; medium scope.
-- [ ] **Cross-Kubernetes federation.** A future
-  `PrometheusClusterFederation` aggregates `PrometheusClusterSet`s
-  across kubeconfigs. Largest item here: needs multi-cluster client
-  management, auth, cross-cluster watch. Likely two releases, not one.
+- [ ] **Per-cluster scrape config layering.** A user-facing
+  `spec.additionalScrapeConfigs` (inline YAML or Secret reference) that
+  the reconciler merges into the generated `prometheus.yml` without
+  users hand-editing the ConfigMap. Today the operator owns the
+  ConfigMap and overwrites it on every reconcile, which makes it
+  awkward to add custom scrape jobs. This closes that gap.
 
 ## Non-goals
+
+To keep scope honest:
 
 - Not reimplementing a TSDB. Prometheus stays the engine.
 - Not competing with Thanos / Mimir / VM on global query.
 - Not replacing Alertmanager or `vmalert` for alerting.
+- **Not building cross-Kubernetes federation.** A
+  `PrometheusClusterFederation` that lived in a control cluster and
+  reconciled across kubeconfigs was on an earlier roadmap. We won't
+  build it, for two reasons: (1) it duplicates mature platforms whose
+  whole purpose is multi-cluster delivery — Karmada, Open Cluster
+  Management, Argo CD ApplicationSet — any user at that scale already
+  runs one of them; (2) doing it honestly is a multi-release scope
+  (multi-cluster client pool, cross-cluster watch, unreachable-cluster
+  degradation, per-cluster RBAC) and that scope competes with
+  vertical-direction work (better scrape config, better backup
+  artifact, better audit) that has more direct user value. Recommended
+  pattern: propagate `PrometheusCluster` / `PrometheusClusterSet` CRs
+  with Argo CD ApplicationSet or Karmada; aggregate Prometheus data
+  with Thanos Query.
