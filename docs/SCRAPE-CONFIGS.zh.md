@@ -18,7 +18,7 @@ reconciler：
    附加文件都是同一个 ConfigMap 挂出来的。
 
 需要 Prometheus 2.43+ 才支持 `scrape_config_files` 指令（默认镜像
-`prom/prometheus:v2.53.0` 满足）。
+`prom/prometheus:v2.55.1` 满足）。
 
 ## 两种形式
 

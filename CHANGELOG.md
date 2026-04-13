@@ -6,6 +6,70 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-04-14
+
+First stable release. API surface for `observability.merlionos.org/v1`
+is now covered by semver: breaking changes require a major bump. Plan
+details in [`docs/V1-PREP.md`](docs/V1-PREP.md).
+
+### Breaking
+
+Only one breaking change since v0.x, and it already landed in v0.11.0:
+
+- `PrometheusCluster.spec.additionalScrapeConfigs` is a struct with
+  mutually-exclusive `inline` / `secretRef`, not a bare string. See
+  the [v0.11.0 migration diff](#0110--2026-04-14).
+
+Users on **v0.11.x upgrading to v1.0.0** need no CR edits.
+Users on **v0.10.x or earlier** must convert the field per the v0.11.0
+diff before upgrading.
+
+### Added
+
+- Print columns: `kubectl get prometheuscluster` shows Phase / Ready /
+  Age; `kubectl get prometheusclusterset` shows Members / Age.
+- CRD-level validation: MinLength on `remoteWrite[].url` and
+  `backup.schedule`; Prometheus-duration pattern
+  (`^[0-9]+(ms|s|m|h|d|w|y)$`) on `retention`; Enum on
+  `status.phase`. Complements the admission webhook.
+- `+kubebuilder:storageversion` explicit on both CRDs.
+
+### Changed
+
+- Default `spec.image` bumped to `prom/prometheus:v2.55.1`
+  (Prometheus 2.x LTS at release time).
+- Default `spec.thanos.image` bumped to `quay.io/thanos/thanos:v0.37.2`.
+
+### Stability guarantees
+
+See [`docs/V1-PREP.md`](docs/V1-PREP.md) for the full field-by-field
+v1 status table. In summary:
+
+- CRD fields are under semver.
+- Internal packages (`internal/...`) are **not** importable; layout
+  may change.
+- REST API JSON shape tracks the CRD; additive changes are non-breaking.
+- Helm chart values are additive-compatible; new opt-in keys don't
+  require a major.
+- Audit log table schema is operator-owned; no external reads.
+
+### Deprecation policy (going forward)
+
+Fields deprecate for one minor version before removal, marked with
+`// Deprecated:` and `+kubebuilder:deprecatedversion:warning`.
+Renames run the new and old field in parallel for one minor with the
+new winning. Schema removals require a major bump.
+
+### Stats
+
+- 12 shipped releases under v0.x before v1.0
+- 10 of those 12 caught a real bug via kind verification
+- Final kind pass before v1.0 tag: zero bugs
+- Coverage: `internal/controller` 75%, `internal/webhook` 76%,
+  `pkg/api` 56%
+
+[1.0.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v1.0.0
+
 ## [0.11.0] — 2026-04-14
 
 **Breaking** schema change in preparation for v1.0 — see

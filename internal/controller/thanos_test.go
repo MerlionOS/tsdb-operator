@@ -104,7 +104,7 @@ func TestThanosSidecarEnabledWithObjstore(t *testing.T) {
 			Replicas: 1,
 			Thanos: observabilityv1.ThanosSpec{
 				Enabled:                      true,
-				Image:                        "quay.io/thanos/thanos:v0.36.1",
+				Image:                        "quay.io/thanos/thanos:v0.37.2",
 				ObjectStorageConfigSecretRef: &corev1.LocalObjectReference{Name: "thanos-objstore-secret"},
 			},
 		},

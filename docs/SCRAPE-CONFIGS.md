@@ -20,7 +20,7 @@ The reconciler:
    the same ConfigMap.
 
 Requires Prometheus 2.43+ for the `scrape_config_files` directive (the
-default image `prom/prometheus:v2.53.0` satisfies this).
+default image `prom/prometheus:v2.55.1` satisfies this).
 
 ## Two flavours
 

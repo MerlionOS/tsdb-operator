@@ -344,7 +344,7 @@ func (r *PrometheusClusterReconciler) buildStatefulSet(pc *observabilityv1.Prome
 	}
 	image := pc.Spec.Image
 	if image == "" {
-		image = "prom/prometheus:v2.53.0"
+		image = "prom/prometheus:v2.55.1"
 	}
 	retention := pc.Spec.Retention
 	if retention == "" {
@@ -472,7 +472,7 @@ func (r *PrometheusClusterReconciler) buildStatefulSet(pc *observabilityv1.Prome
 func buildThanosSidecar(t *observabilityv1.ThanosSpec) (corev1.Container, *corev1.Volume) {
 	image := t.Image
 	if image == "" {
-		image = "quay.io/thanos/thanos:v0.36.1"
+		image = "quay.io/thanos/thanos:v0.37.2"
 	}
 	args := []string{
 		"sidecar",

@@ -136,7 +136,7 @@ spec:
                     type: string
                 type: object
               image:
-                default: prom/prometheus:v2.53.0
+                default: prom/prometheus:v2.55.1
                 description: Image is the Prometheus container image.
                 type: string
               remoteWrite:
@@ -283,7 +283,7 @@ spec:
                     description: Enabled turns the sidecar on.
                     type: boolean
                   image:
-                    default: quay.io/thanos/thanos:v0.36.1
+                    default: quay.io/thanos/thanos:v0.37.2
                     description: Image is the Thanos container image.
                     type: string
                   objectStorageConfigSecretRef:

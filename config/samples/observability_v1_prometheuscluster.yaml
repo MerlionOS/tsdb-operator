@@ -7,7 +7,7 @@ metadata:
   name: demo
 spec:
   replicas: 1
-  image: prom/prometheus:v2.53.0
+  image: prom/prometheus:v2.55.1
   retention: 15d
   storage:
     size: 1Gi

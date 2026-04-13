@@ -125,9 +125,8 @@ in spirit:
 - [x] Print columns: `kubectl get prometheuscluster` now shows
   Phase / Ready / Age; `kubectl get prometheusclusterset` shows
   Members / Age
-- [ ] Default `image` and `spec.thanos.image` bumped (defer to v1.0
-  cut — pick fresh stable versions at release time)
-- [ ] CHANGELOG entry under `## [1.0.0]` listing only the
-  intentional breaking changes
-- [ ] Migration note for v0.x → v1.0 users (the only one-time CR edit
-  was v0.11.0's `additionalScrapeConfigs` shape)
+- [x] Default `image` bumped to `prom/prometheus:v2.55.1` and
+  `spec.thanos.image` to `quay.io/thanos/thanos:v0.37.2`
+- [x] CHANGELOG entry under `## [1.0.0]` with migration note (only CR
+  edit needed is from v0.10.x or earlier, and it's `additionalScrapeConfigs`
+  from v0.11.0)

@@ -87,7 +87,7 @@ type ThanosSpec struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// Image is the Thanos container image.
-	// +kubebuilder:default="quay.io/thanos/thanos:v0.36.1"
+	// +kubebuilder:default="quay.io/thanos/thanos:v0.37.2"
 	// +optional
 	Image string `json:"image,omitempty"`
 
@@ -123,7 +123,7 @@ type PrometheusClusterSpec struct {
 	Replicas int32 `json:"replicas,omitempty"`
 
 	// Image is the Prometheus container image.
-	// +kubebuilder:default="prom/prometheus:v2.53.0"
+	// +kubebuilder:default="prom/prometheus:v2.55.1"
 	Image string `json:"image,omitempty"`
 
 	// Retention period for local TSDB data, e.g. "15d".

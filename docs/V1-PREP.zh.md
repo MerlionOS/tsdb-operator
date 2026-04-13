@@ -114,8 +114,7 @@ v1 冻结之前要考虑改的东西：
 - [x] Print columns：`kubectl get prometheuscluster` 现在显示
   Phase / Ready / Age；`kubectl get prometheusclusterset` 显示
   Members / Age
-- [ ] 默认 `image` 和 `spec.thanos.image` 升版（留到 v1.0 cut 时挑
-  fresh 的稳定版本）
-- [ ] CHANGELOG 在 `## [1.0.0]` 段只列**有意为之**的 breaking changes
-- [ ] v0.x → v1.0 的迁移 note（唯一一次性 CR 改动就是 v0.11.0 的
-  `additionalScrapeConfigs` 形状）
+- [x] 默认 `image` 升到 `prom/prometheus:v2.55.1`，`spec.thanos.image`
+  升到 `quay.io/thanos/thanos:v0.37.2`
+- [x] CHANGELOG 的 `## [1.0.0]` 段带迁移说明（只有 v0.10.x 或更早的用户
+  要改 CR —— `additionalScrapeConfigs` 形状，从 v0.11.0 沿用）
