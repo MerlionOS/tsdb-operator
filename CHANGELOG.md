@@ -6,6 +6,33 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-04-14
+
+Auto-reload Prometheus when its ConfigMap changes — closes the
+`additionalScrapeConfigs` UX gap from v0.9.x ("change took effect only
+after manual `curl /-/reload` or pod restart").
+
+### Added
+
+- `PrometheusClusterReconciler.triggerReload`: POSTs `/-/reload` to
+  every Ready replica when `reconcileConfigMap` returns
+  `OperationResultUpdated` (i.e. content actually changed).
+  First-time creation does **not** trigger a reload — the pod hasn't
+  started yet, it'll pick the config up on first start.
+- HTTP client is injectable on `PrometheusClusterReconciler.HTTP` for
+  test substitution.
+- New `internal/controller/reload_test.go` covering pod listing,
+  multi-replica fan-out, and skipping pods without an IP.
+
+### Changed
+
+- `reconcileConfigMap` returns `(bool, error)` instead of just
+  `error` — the bool reports whether the existing object was updated.
+  Internal API change; no operator behaviour change for existing
+  callers.
+
+[0.10.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.10.0
+
 ## [0.9.1] — 2026-04-14
 
 ### Fixed

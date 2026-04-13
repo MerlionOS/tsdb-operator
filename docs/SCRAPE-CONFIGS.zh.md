@@ -63,7 +63,7 @@ reload 日志和 `/api/v1/status/config` 暴露出来。
 - **不支持 PodMonitor / ServiceMonitor。** 那是 prometheus-operator
   的 CRD，本 operator 故意不实现。同时跑两个 operator 即可同时拥有
   两套接口 —— 见 [`MIGRATION.zh.md`](MIGRATION.zh.md)。
-- **ConfigMap 变更不会自动 reload。** Prometheus 默认开了
-  `--web.enable-lifecycle`，需要手动
-  `kubectl exec <pod> -- curl -XPOST http://localhost:9090/-/reload`
-  或者等下次 Pod 重启。operator 自动 reload 留在 Later 列表。
+- **v0.10.0 起 reload 是自动的。** operator 更新 ConfigMap
+  （`spec.additionalScrapeConfigs` 或任何其他渲染字段变更）时，会
+  对每个 Ready 副本 POST `/-/reload`。单 Pod 失败只 log 不算硬错
+  —— 下次 reconcile 会重试，重启后也会自然加载新配置。

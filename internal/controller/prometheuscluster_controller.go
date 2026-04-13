@@ -13,7 +13,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -54,6 +56,10 @@ type PrometheusClusterReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
 	BackupSchedule BackupRegistrar // optional; set when backup is enabled
+
+	// HTTP is the client used for /-/reload calls. Defaulted lazily to
+	// http.DefaultClient when nil; tests inject a fake transport.
+	HTTP *http.Client
 }
 
 // +kubebuilder:rbac:groups=observability.merlionos.org,resources=prometheusclusters,verbs=get;list;watch;create;update;patch;delete
@@ -93,8 +99,13 @@ func (r *PrometheusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 	}
 
-	if err := r.reconcileConfigMap(ctx, &pc); err != nil {
+	cmChanged, err := r.reconcileConfigMap(ctx, &pc)
+	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile configmap: %w", err)
+	}
+	if cmChanged {
+		// Fire-and-forget per-pod reload. Failures are logged inside.
+		r.triggerReload(ctx, &pc)
 	}
 	if err := r.reconcileHeadlessService(ctx, &pc); err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile service: %w", err)
@@ -102,7 +113,7 @@ func (r *PrometheusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	current := &appsv1.StatefulSet{}
 	desired := r.buildStatefulSet(&pc)
-	err := r.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
+	err = r.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
 	switch {
 	case apierrors.IsNotFound(err):
 		if err := controllerutil.SetControllerReference(&pc, desired, r.Scheme); err != nil {
@@ -163,11 +174,15 @@ func (r *PrometheusClusterReconciler) updatePhase(ctx context.Context, pc *obser
 	return ctrl.Result{}, nil
 }
 
-func (r *PrometheusClusterReconciler) reconcileConfigMap(ctx context.Context, pc *observabilityv1.PrometheusCluster) error {
+// reconcileConfigMap creates or updates the prometheus.yml ConfigMap and
+// reports whether the existing object's content actually changed (so the
+// caller can issue a /-/reload). First-time creation does not count as a
+// change — pods will pick up the config on first start.
+func (r *PrometheusClusterReconciler) reconcileConfigMap(ctx context.Context, pc *observabilityv1.PrometheusCluster) (bool, error) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: configMapName(pc), Namespace: pc.Namespace},
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
 		if cm.Data == nil {
 			cm.Data = map[string]string{}
 		}
@@ -179,7 +194,46 @@ func (r *PrometheusClusterReconciler) reconcileConfigMap(ctx context.Context, pc
 		}
 		return controllerutil.SetControllerReference(pc, cm, r.Scheme)
 	})
-	return err
+	if err != nil {
+		return false, err
+	}
+	return op == controllerutil.OperationResultUpdated, nil
+}
+
+// triggerReload POSTs /-/reload to every Ready pod of the cluster. Best-
+// effort: per-pod failures are logged but never propagated (the next
+// reconcile will retry; pods restarting eventually pick up the config
+// anyway).
+func (r *PrometheusClusterReconciler) triggerReload(ctx context.Context, pc *observabilityv1.PrometheusCluster) {
+	log := logf.FromContext(ctx).WithValues("cluster", pc.Name)
+	var pods corev1.PodList
+	if err := r.List(ctx, &pods, client.InNamespace(pc.Namespace), client.MatchingLabels{
+		"app.kubernetes.io/instance": pc.Name,
+	}); err != nil {
+		log.Error(err, "list pods for reload")
+		return
+	}
+	httpClient := r.HTTP
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 5 * time.Second}
+	}
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if pod.Status.PodIP == "" {
+			continue
+		}
+		url := fmt.Sprintf("http://%s:9090/-/reload", pod.Status.PodIP)
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			log.Error(err, "reload failed", "pod", pod.Name)
+			continue
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode >= 400 {
+			log.Info("reload returned non-2xx", "pod", pod.Name, "status", resp.StatusCode)
+		}
+	}
 }
 
 // additionalScrapeFile is the ConfigMap key (and basename inside the
