@@ -22,6 +22,10 @@ English: [README.md](README.md)
 > 更广的时序数据库横向对比（Prometheus 生态 + 通用 TSDB）：
 > [`docs/TSDB-LANDSCAPE.zh.md`](docs/TSDB-LANDSCAPE.zh.md)
 > （[English](docs/TSDB-LANDSCAPE.en.md)）。
+>
+> 影响这个 operator 设计的 Prometheus TSDB 内部原理：
+> [`docs/TSDB-INTERNALS.zh.md`](docs/TSDB-INTERNALS.zh.md)
+> （[English](docs/TSDB-INTERNALS.en.md)）。
 
 ## 它解决什么问题
 

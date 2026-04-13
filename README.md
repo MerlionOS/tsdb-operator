@@ -80,6 +80,10 @@ single declarative CRD (`PrometheusCluster`) and a small control plane.
 > Broader TSDB landscape (Prometheus ecosystem + general-purpose TSDBs):
 > [`docs/TSDB-LANDSCAPE.en.md`](docs/TSDB-LANDSCAPE.en.md)
 > ([中文](docs/TSDB-LANDSCAPE.zh.md)).
+>
+> Prometheus TSDB internals that informed this operator's design:
+> [`docs/TSDB-INTERNALS.en.md`](docs/TSDB-INTERNALS.en.md)
+> ([中文](docs/TSDB-INTERNALS.zh.md)).
 
 ## Architecture
 
