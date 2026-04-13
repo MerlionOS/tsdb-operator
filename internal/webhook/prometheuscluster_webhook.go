@@ -9,6 +9,8 @@ import (
 	"github.com/robfig/cron/v3"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sigs.k8s.io/yaml"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -76,6 +78,16 @@ func (v *PrometheusClusterValidator) validate(pc *observabilityv1.PrometheusClus
 			errs = append(errs, field.Required(
 				specPath.Child("remoteWrite").Index(i).Child("url"),
 				"url is required"))
+		}
+	}
+
+	if pc.Spec.AdditionalScrapeConfigs != "" {
+		// Prometheus' scrape_config_files expects a top-level YAML list
+		// of scrape entries. Catch the most common shape mistakes here.
+		var probe []map[string]any
+		if err := yaml.Unmarshal([]byte(pc.Spec.AdditionalScrapeConfigs), &probe); err != nil {
+			errs = append(errs, field.Invalid(specPath.Child("additionalScrapeConfigs"),
+				"<elided>", "must be a YAML list of scrape_config entries: "+err.Error()))
 		}
 	}
 

@@ -45,6 +45,28 @@ func TestRenderConfigRemoteWriteBasicAuth(t *testing.T) {
 	}
 }
 
+func TestRenderConfigAdditionalScrapeConfigsAddsFile(t *testing.T) {
+	pc := &observabilityv1.PrometheusCluster{
+		Spec: observabilityv1.PrometheusClusterSpec{
+			AdditionalScrapeConfigs: "- job_name: my-app\n  static_configs:\n    - targets: ['x:1']\n",
+		},
+	}
+	out := renderConfig(pc)
+	if !strings.Contains(out, "scrape_config_files:") {
+		t.Fatalf("missing scrape_config_files block:\n%s", out)
+	}
+	if !strings.Contains(out, "/etc/prometheus/additional-scrape-configs.yml") {
+		t.Fatalf("missing additional-scrape-configs.yml path:\n%s", out)
+	}
+}
+
+func TestRenderConfigNoScrapeConfigFilesWhenEmpty(t *testing.T) {
+	out := renderConfig(&observabilityv1.PrometheusCluster{})
+	if strings.Contains(out, "scrape_config_files:") {
+		t.Fatalf("unexpected scrape_config_files block:\n%s", out)
+	}
+}
+
 func TestRenderConfigRemoteWriteBearerToken(t *testing.T) {
 	pc := &observabilityv1.PrometheusCluster{
 		Spec: observabilityv1.PrometheusClusterSpec{

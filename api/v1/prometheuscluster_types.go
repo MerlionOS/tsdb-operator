@@ -146,6 +146,19 @@ type PrometheusClusterSpec struct {
 	// Thanos optionally attaches a Thanos sidecar to each replica.
 	// +optional
 	Thanos ThanosSpec `json:"thanos,omitempty"`
+
+	// AdditionalScrapeConfigs is an inline YAML list of Prometheus scrape
+	// configuration entries that the operator merges into the generated
+	// prometheus.yml via the native scrape_config_files mechanism.
+	// Format: top-level YAML list, e.g.
+	//
+	//   - job_name: my-app
+	//     static_configs:
+	//       - targets: [my-app:8080]
+	//
+	// Requires Prometheus 2.43+ (the default image satisfies this).
+	// +optional
+	AdditionalScrapeConfigs string `json:"additionalScrapeConfigs,omitempty"`
 }
 
 // PrometheusClusterStatus defines the observed state of PrometheusCluster.

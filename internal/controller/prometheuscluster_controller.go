@@ -172,10 +172,19 @@ func (r *PrometheusClusterReconciler) reconcileConfigMap(ctx context.Context, pc
 			cm.Data = map[string]string{}
 		}
 		cm.Data["prometheus.yml"] = renderConfig(pc)
+		if pc.Spec.AdditionalScrapeConfigs != "" {
+			cm.Data[additionalScrapeFile] = pc.Spec.AdditionalScrapeConfigs
+		} else {
+			delete(cm.Data, additionalScrapeFile)
+		}
 		return controllerutil.SetControllerReference(pc, cm, r.Scheme)
 	})
 	return err
 }
+
+// additionalScrapeFile is the ConfigMap key (and basename inside the
+// /etc/prometheus mount) for spec.additionalScrapeConfigs.
+const additionalScrapeFile = "additional-scrape-configs.yml"
 
 // renderConfig composes the prometheus.yml for a cluster: one global block
 // (with Thanos external_labels when enabled), then the scrape config, then
@@ -193,6 +202,11 @@ func renderConfig(pc *observabilityv1.PrometheusCluster) string {
 		fmt.Fprintf(&b, "  external_labels:\n    cluster: %q\n    replica: ${POD_NAME:-unknown}\n", pc.Name)
 	}
 	b.WriteString(scrapeConfig)
+	if pc.Spec.AdditionalScrapeConfigs != "" {
+		// Prometheus 2.43+ scrape_config_files: load extra scrape entries from
+		// the ConfigMap key mounted alongside prometheus.yml.
+		fmt.Fprintf(&b, "scrape_config_files:\n  - /etc/prometheus/%s\n", additionalScrapeFile)
+	}
 	if len(pc.Spec.RemoteWrite) == 0 {
 		return b.String()
 	}

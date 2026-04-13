@@ -39,6 +39,19 @@ spec:
           spec:
             description: spec defines the desired state of PrometheusCluster
             properties:
+              additionalScrapeConfigs:
+                description: |-
+                  AdditionalScrapeConfigs is an inline YAML list of Prometheus scrape
+                  configuration entries that the operator merges into the generated
+                  prometheus.yml via the native scrape_config_files mechanism.
+                  Format: top-level YAML list, e.g.
+
+                    - job_name: my-app
+                      static_configs:
+                        - targets: [my-app:8080]
+
+                  Requires Prometheus 2.43+ (the default image satisfies this).
+                type: string
               backup:
                 description: Backup configuration.
                 properties:

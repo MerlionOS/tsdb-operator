@@ -84,6 +84,10 @@ single declarative CRD (`PrometheusCluster`) and a small control plane.
 > Prometheus TSDB internals that informed this operator's design:
 > [`docs/TSDB-INTERNALS.en.md`](docs/TSDB-INTERNALS.en.md)
 > ([中文](docs/TSDB-INTERNALS.zh.md)).
+>
+> Adding custom scrape configs without hand-editing the ConfigMap:
+> [`docs/SCRAPE-CONFIGS.md`](docs/SCRAPE-CONFIGS.md)
+> ([中文](docs/SCRAPE-CONFIGS.zh.md)).
 
 ## Architecture
 

@@ -64,6 +64,35 @@ func TestValidateRejectsRemoteWriteWithoutURL(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsBadAdditionalScrapeConfigs(t *testing.T) {
+	v := &PrometheusClusterValidator{}
+	err := v.Validate(&observabilityv1.PrometheusCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "demo"},
+		Spec: observabilityv1.PrometheusClusterSpec{
+			Replicas: 1,
+			// Not a YAML list — most common shape mistake.
+			AdditionalScrapeConfigs: "job_name: x\nstatic_configs: []",
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "additionalScrapeConfigs") {
+		t.Fatalf("want additionalScrapeConfigs error, got %v", err)
+	}
+}
+
+func TestValidateAcceptsAdditionalScrapeConfigsList(t *testing.T) {
+	v := &PrometheusClusterValidator{}
+	err := v.Validate(&observabilityv1.PrometheusCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "demo"},
+		Spec: observabilityv1.PrometheusClusterSpec{
+			Replicas:                1,
+			AdditionalScrapeConfigs: "- job_name: x\n  static_configs:\n    - targets: [a:1]\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("want nil, got %v", err)
+	}
+}
+
 func TestValidateAcceptsValid(t *testing.T) {
 	v := &PrometheusClusterValidator{}
 	err := v.Validate(&observabilityv1.PrometheusCluster{

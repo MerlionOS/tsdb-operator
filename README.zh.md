@@ -26,6 +26,10 @@ English: [README.md](README.md)
 > 影响这个 operator 设计的 Prometheus TSDB 内部原理：
 > [`docs/TSDB-INTERNALS.zh.md`](docs/TSDB-INTERNALS.zh.md)
 > （[English](docs/TSDB-INTERNALS.en.md)）。
+>
+> 不手改 ConfigMap 也能加自定义抓取配置：
+> [`docs/SCRAPE-CONFIGS.zh.md`](docs/SCRAPE-CONFIGS.zh.md)
+> （[English](docs/SCRAPE-CONFIGS.md)）。
 
 ## 它解决什么问题
 

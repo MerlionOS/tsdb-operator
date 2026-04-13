@@ -6,6 +6,27 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-04-14
+
+User-side custom scrape config without hand-editing the operator's
+ConfigMap.
+
+### Added
+
+- `spec.additionalScrapeConfigs` (string, top-level YAML list) on
+  `PrometheusCluster`. Stored under ConfigMap key
+  `additional-scrape-configs.yml`; main `prometheus.yml` references it
+  via Prometheus 2.43+ `scrape_config_files` directive.
+- Webhook validation: rejects non-list YAML at `kubectl apply` time
+  with the field path; doesn't try to validate scrape-config internals
+  (Prometheus reload still surfaces those).
+- `docs/SCRAPE-CONFIGS.{en,zh}.md` with example and explicit limits
+  (inline-only, no auto-reload, no PodMonitor/ServiceMonitor).
+- Two new tests in `internal/controller/render_test.go` and two in
+  `internal/webhook/`.
+
+[0.9.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.9.0
+
 ## [0.8.0] — 2026-04-13
 
 `PrometheusClusterSet.spec.backupTemplate` now actually takes effect on
