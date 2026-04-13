@@ -22,6 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the tsdb-operator itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- prometheusclusterset_admin_role.yaml
+- prometheusclusterset_editor_role.yaml
+- prometheusclusterset_viewer_role.yaml
 - prometheuscluster_admin_role.yaml
 - prometheuscluster_editor_role.yaml
 - prometheuscluster_viewer_role.yaml

@@ -149,6 +149,32 @@ func TestBackupWithoutScheduler(t *testing.T) {
 	}
 }
 
+func TestListClusterSets(t *testing.T) {
+	set := &observabilityv1.PrometheusClusterSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "global"},
+	}
+	srv := newServer(t, set)
+	rec := do(t, srv, http.MethodGet, "/api/clustersets", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var got []observabilityv1.PrometheusClusterSet
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Name != "global" {
+		t.Fatalf("unexpected: %+v", got)
+	}
+}
+
+func TestGetClusterSetNotFound(t *testing.T) {
+	srv := newServer(t)
+	rec := do(t, srv, http.MethodGet, "/api/clustersets/missing", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d", rec.Code)
+	}
+}
+
 func TestAuditWithoutLogger(t *testing.T) {
 	srv := newServer(t)
 	rec := do(t, srv, http.MethodGet, "/api/clusters/demo/audit", nil)

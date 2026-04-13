@@ -25,6 +25,14 @@ rules:
   - create
   - patch
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - apps
   resources:
   - statefulsets
@@ -40,6 +48,7 @@ rules:
   - observability.merlionos.org
   resources:
   - prometheusclusters
+  - prometheusclustersets
   verbs:
   - create
   - delete
@@ -52,12 +61,14 @@ rules:
   - observability.merlionos.org
   resources:
   - prometheusclusters/finalizers
+  - prometheusclustersets/finalizers
   verbs:
   - update
 - apiGroups:
   - observability.merlionos.org
   resources:
   - prometheusclusters/status
+  - prometheusclustersets/status
   verbs:
   - get
   - patch

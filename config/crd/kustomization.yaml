@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/observability.merlionos.org_prometheusclusters.yaml
+- bases/observability.merlionos.org_prometheusclustersets.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

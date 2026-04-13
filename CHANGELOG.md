@@ -6,6 +6,34 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-04-13
+
+Multi-cluster aggregation. Adds the `PrometheusClusterSet` cluster-scoped
+CRD, the flagship Milestone-4 feature: groups `PrometheusCluster`
+resources by label across namespaces and reports membership + per-phase
+counts in the Set's status.
+
+### Added
+
+- `PrometheusClusterSet` (cluster-scoped) with `spec.clusterSelector`,
+  `spec.namespaceSelector`, and `spec.backupTemplate`.
+- Set reconciler that watches `PrometheusCluster` events and refreshes
+  every Set's `status.{memberCount,phaseCount,members}`.
+- REST API: `GET /api/clustersets`, `GET /api/clustersets/:name`.
+- RBAC: cluster-scoped read on `prometheusclustersets` and `namespaces`,
+  plus the new status/finalizers verbs in the Helm chart's ClusterRole.
+- Envtest specs covering label-match and "match everything" branches.
+- `docs/CLUSTERSET.{en,zh}.md` describing the model, REST surface, and
+  what is deliberately out of scope (no auto-overlay of the
+  `backupTemplate`, no cross-Kubernetes federation).
+
+### Deferred
+
+- Mutating member CRs from the Set's `backupTemplate`. Tracked under
+  "Later" in the roadmap.
+
+[0.5.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.5.0
+
 ## [0.4.0] — 2026-04-13
 
 Audit-log hardening. The `audit.Logger` has existed since v0.1.0 but was

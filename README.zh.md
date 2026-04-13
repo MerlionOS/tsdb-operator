@@ -13,6 +13,9 @@ English: [README.md](README.md)
 > 和 prometheus-operator 双向迁移：
 > [`docs/MIGRATION.zh.md`](docs/MIGRATION.zh.md)（[English](docs/MIGRATION.md)）。
 >
+> 跨 namespace 聚合的 cluster-scoped CRD：
+> [`docs/CLUSTERSET.zh.md`](docs/CLUSTERSET.zh.md)（[English](docs/CLUSTERSET.md)）。
+>
 > 和 Thanos、VictoriaMetrics 的对比见
 > [`docs/COMPARISON.zh.md`](docs/COMPARISON.zh.md)（[English](docs/COMPARISON.en.md)）。
 >

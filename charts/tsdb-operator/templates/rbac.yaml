@@ -6,11 +6,18 @@ metadata:
     {{- include "tsdb-operator.labels" . | nindent 4 }}
 rules:
   - apiGroups: ["observability.merlionos.org"]
-    resources: ["prometheusclusters"]
+    resources: ["prometheusclusters", "prometheusclustersets"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["observability.merlionos.org"]
-    resources: ["prometheusclusters/status", "prometheusclusters/finalizers"]
+    resources:
+      - prometheusclusters/status
+      - prometheusclusters/finalizers
+      - prometheusclustersets/status
+      - prometheusclustersets/finalizers
     verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["statefulsets"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

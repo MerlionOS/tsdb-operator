@@ -42,7 +42,27 @@ func (s *Server) Router() *gin.Engine {
 	api.DELETE("/clusters/:name", s.deleteCluster)
 	api.POST("/clusters/:name/backup", s.triggerBackup)
 	api.GET("/clusters/:name/audit", s.queryAudit)
+	api.GET("/clustersets", s.listClusterSets)
+	api.GET("/clustersets/:name", s.getClusterSet)
 	return r
+}
+
+func (s *Server) listClusterSets(c *gin.Context) {
+	var list observabilityv1.PrometheusClusterSetList
+	if err := s.Client.List(c.Request.Context(), &list); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, list.Items)
+}
+
+func (s *Server) getClusterSet(c *gin.Context) {
+	var set observabilityv1.PrometheusClusterSet
+	if err := s.Client.Get(c.Request.Context(), client.ObjectKey{Name: c.Param("name")}, &set); err != nil {
+		c.JSON(statusFor(err), gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, set)
 }
 
 func (s *Server) listClusters(c *gin.Context) {

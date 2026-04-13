@@ -22,6 +22,9 @@ single declarative CRD (`PrometheusCluster`) and a small control plane.
 > Migrating to/from prometheus-operator:
 > [`docs/MIGRATION.md`](docs/MIGRATION.md) ([中文](docs/MIGRATION.zh.md)).
 >
+> Cluster-scoped aggregation across namespaces:
+> [`docs/CLUSTERSET.md`](docs/CLUSTERSET.md) ([中文](docs/CLUSTERSET.zh.md)).
+>
 > How does this compare to Thanos and VictoriaMetrics? See
 > [`docs/COMPARISON.en.md`](docs/COMPARISON.en.md) ([中文](docs/COMPARISON.zh.md)).
 >
