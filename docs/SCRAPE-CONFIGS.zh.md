@@ -20,7 +20,16 @@ reconciler：
 需要 Prometheus 2.43+ 才支持 `scrape_config_files` 指令（默认镜像
 `prom/prometheus:v2.53.0` 满足）。
 
-## 示例
+## 两种形式
+
+v0.11.0 起 `spec.additionalScrapeConfigs` 是一个结构体，两个互斥的
+子字段：短配置用 **inline** 直接写在 CR 里；长配置或要分开管理（RBAC、
+GitOps secret 等）用 **secretRef**。
+
+### Inline
+
+operator 存到 ConfigMap 的 `additional-scrape-configs.yml` key，
+自动包一层 `scrape_configs:`。用户写裸 list。
 
 ```yaml
 apiVersion: observability.merlionos.org/v1
@@ -29,37 +38,67 @@ metadata:
   name: demo
 spec:
   replicas: 1
-  additionalScrapeConfigs: |
-    - job_name: my-app
-      kubernetes_sd_configs:
-        - role: pod
-      relabel_configs:
-        - source_labels: [__meta_kubernetes_pod_label_app]
-          action: keep
-          regex: my-app
-    - job_name: blackbox
-      static_configs:
-        - targets:
-            - https://example.com
-      metrics_path: /probe
-      params:
-        module: [http_2xx]
+  additionalScrapeConfigs:
+    inline: |
+      - job_name: my-app
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: my-app
+      - job_name: blackbox
+        static_configs:
+          - targets: [https://example.com]
+        metrics_path: /probe
+        params:
+          module: [http_2xx]
 ```
 
-值是一个**顶层 YAML 列表**，和主配置 `scrape_configs:` 下面的形状
-完全一样。
+### SecretRef
+
+Secret 里的内容必须是**完整的 Prometheus 抓取配置文件**（包含顶层
+`scrape_configs:` —— operator 不会自动包 secret 内容）。Secret
+被挂到 `/etc/prometheus/extra-secret/<key>`。
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-scrape-secret
+stringData:
+  scrapes.yaml: |
+    scrape_configs:
+      - job_name: my-app
+        static_configs:
+          - targets: [my-app:8080]
+---
+apiVersion: observability.merlionos.org/v1
+kind: PrometheusCluster
+metadata:
+  name: demo
+spec:
+  replicas: 1
+  additionalScrapeConfigs:
+    secretRef:
+      name: my-scrape-secret
+      key: scrapes.yaml
+```
 
 ## 校验
 
-启用 `features.webhook=true` 时，admission webhook 在 `kubectl apply`
-阶段就会解析这个字段，不是 YAML list 直接拒。它**不会**校验每个
-scrape-config 字段的细节 —— 那种深度的错误还是会通过 Prometheus
-reload 日志和 `/api/v1/status/config` 暴露出来。
+启用 `features.webhook=true` 时 admission webhook 拒绝以下情况：
+
+- `inline` 和 `secretRef` 同时设置
+- `additionalScrapeConfigs` 存在但两者都没设
+- `inline` 不是 YAML list
+- `secretRef.name` 或 `secretRef.key` 为空
+
+它**不会**校验每个 scrape-config 字段的细节 —— 那种深度的错误还是会
+通过 Prometheus reload 日志和 `/api/v1/status/config` 暴露出来。
 
 ## 局限
 
-- **v0.9.0 只支持 inline。** `secretRef` 形式（挂一个装满 scrape file
-  的 Secret）是自然的后续，本版没做。
 - **不支持 PodMonitor / ServiceMonitor。** 那是 prometheus-operator
   的 CRD，本 operator 故意不实现。同时跑两个 operator 即可同时拥有
   两套接口 —— 见 [`MIGRATION.zh.md`](MIGRATION.zh.md)。

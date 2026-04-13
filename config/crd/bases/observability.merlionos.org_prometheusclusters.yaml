@@ -41,17 +41,53 @@ spec:
             properties:
               additionalScrapeConfigs:
                 description: |-
-                  AdditionalScrapeConfigs is an inline YAML list of Prometheus scrape
-                  configuration entries that the operator merges into the generated
-                  prometheus.yml via the native scrape_config_files mechanism.
-                  Format: top-level YAML list, e.g.
+                  AdditionalScrapeConfigs supplies user-side scrape configuration
+                  merged into the generated prometheus.yml via the native
+                  scrape_config_files mechanism (Prometheus 2.43+).
+                  Exactly one of `inline` or `secretRef` may be set.
+                properties:
+                  inline:
+                    description: |-
+                      Inline is a top-level YAML list of scrape entries, e.g.
 
-                    - job_name: my-app
-                      static_configs:
-                        - targets: [my-app:8080]
+                        - job_name: my-app
+                          static_configs:
+                            - targets: [my-app:8080]
 
-                  Requires Prometheus 2.43+ (the default image satisfies this).
-                type: string
+                      The operator wraps it under a `scrape_configs:` key in the
+                      generated ConfigMap. Use this when the config is small enough to
+                      live in the CR.
+                    type: string
+                  secretRef:
+                    description: |-
+                      SecretRef references a Secret containing a fully-formed Prometheus
+                      scrape config file (must already include the top-level
+                      `scrape_configs:` key). The Secret is mounted into the Prometheus
+                      container at /etc/prometheus/extra-secret/<key>. Use this for
+                      configs too large or sensitive to inline.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
               backup:
                 description: Backup configuration.
                 properties:

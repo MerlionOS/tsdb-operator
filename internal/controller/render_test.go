@@ -45,18 +45,34 @@ func TestRenderConfigRemoteWriteBasicAuth(t *testing.T) {
 	}
 }
 
-func TestRenderConfigAdditionalScrapeConfigsAddsFile(t *testing.T) {
+func TestRenderConfigInlineAddsConfigMapFile(t *testing.T) {
 	pc := &observabilityv1.PrometheusCluster{
 		Spec: observabilityv1.PrometheusClusterSpec{
-			AdditionalScrapeConfigs: "- job_name: my-app\n  static_configs:\n    - targets: ['x:1']\n",
+			AdditionalScrapeConfigs: &observabilityv1.AdditionalScrapeConfigs{
+				Inline: "- job_name: my-app\n  static_configs:\n    - targets: ['x:1']\n",
+			},
 		},
 	}
 	out := renderConfig(pc)
-	if !strings.Contains(out, "scrape_config_files:") {
-		t.Fatalf("missing scrape_config_files block:\n%s", out)
-	}
 	if !strings.Contains(out, "/etc/prometheus/additional-scrape-configs.yml") {
-		t.Fatalf("missing additional-scrape-configs.yml path:\n%s", out)
+		t.Fatalf("missing inline path:\n%s", out)
+	}
+}
+
+func TestRenderConfigSecretRefAddsSecretMountPath(t *testing.T) {
+	pc := &observabilityv1.PrometheusCluster{
+		Spec: observabilityv1.PrometheusClusterSpec{
+			AdditionalScrapeConfigs: &observabilityv1.AdditionalScrapeConfigs{
+				SecretRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "s"},
+					Key:                  "scrapes.yaml",
+				},
+			},
+		},
+	}
+	out := renderConfig(pc)
+	if !strings.Contains(out, "/etc/prometheus/extra-secret/scrapes.yaml") {
+		t.Fatalf("missing secret-mount path:\n%s", out)
 	}
 }
 

@@ -6,6 +6,49 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-04-14
+
+**Breaking** schema change in preparation for v1.0 — see
+[`docs/V1-PREP.md`](docs/V1-PREP.md). The only intentional breaking
+change planned for v1; landing it now lets v1 promote in place.
+
+### Changed (breaking)
+
+- `PrometheusCluster.spec.additionalScrapeConfigs` is no longer a bare
+  string. It is now a struct with mutually-exclusive sub-fields:
+  - `inline` (string) — same content as the old field, wrapped under
+    `scrape_configs:` in the operator-managed ConfigMap.
+  - `secretRef` (`corev1.SecretKeySelector`) — Secret whose value is a
+    complete Prometheus scrape config file (must already include
+    `scrape_configs:`). Mounted at `/etc/prometheus/extra-secret/<key>`.
+
+### Migration v0.10.x → v0.11.0
+
+```diff
+ spec:
+-  additionalScrapeConfigs: |
+-    - job_name: my-app
+-      static_configs:
+-        - targets: [my-app:8080]
++  additionalScrapeConfigs:
++    inline: |
++      - job_name: my-app
++        static_configs:
++          - targets: [my-app:8080]
+```
+
+The webhook will reject the old shape; CR YAML must be edited before
+operators upgrade. Operator binary upgrade itself is safe — existing
+ConfigMaps are regenerated on next reconcile.
+
+### Added
+
+- Webhook validation: rejects both / neither set, missing
+  `secretRef.name` or `secretRef.key`.
+- New tests covering both code paths and all four reject cases.
+
+[0.11.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.11.0
+
 ## [0.10.1] — 2026-04-14
 
 ### Fixed

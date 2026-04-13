@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	observabilityv1 "github.com/MerlionOS/tsdb-operator/api/v1"
@@ -64,32 +65,69 @@ func TestValidateRejectsRemoteWriteWithoutURL(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsBadAdditionalScrapeConfigs(t *testing.T) {
+func TestValidateRejectsBadInlineYAML(t *testing.T) {
 	v := &PrometheusClusterValidator{}
 	err := v.Validate(&observabilityv1.PrometheusCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "demo"},
 		Spec: observabilityv1.PrometheusClusterSpec{
 			Replicas: 1,
-			// Not a YAML list — most common shape mistake.
-			AdditionalScrapeConfigs: "job_name: x\nstatic_configs: []",
+			AdditionalScrapeConfigs: &observabilityv1.AdditionalScrapeConfigs{
+				Inline: "job_name: x\nstatic_configs: []", // not a list
+			},
 		},
 	})
-	if err == nil || !strings.Contains(err.Error(), "additionalScrapeConfigs") {
-		t.Fatalf("want additionalScrapeConfigs error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "inline") {
+		t.Fatalf("want inline error, got %v", err)
 	}
 }
 
-func TestValidateAcceptsAdditionalScrapeConfigsList(t *testing.T) {
+func TestValidateAcceptsInlineList(t *testing.T) {
+	v := &PrometheusClusterValidator{}
+	err := v.Validate(&observabilityv1.PrometheusCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "demo"},
+		Spec: observabilityv1.PrometheusClusterSpec{
+			Replicas: 1,
+			AdditionalScrapeConfigs: &observabilityv1.AdditionalScrapeConfigs{
+				Inline: "- job_name: x\n  static_configs:\n    - targets: [a:1]\n",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("want nil, got %v", err)
+	}
+}
+
+func TestValidateRejectsBothInlineAndSecretRef(t *testing.T) {
+	v := &PrometheusClusterValidator{}
+	err := v.Validate(&observabilityv1.PrometheusCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "demo"},
+		Spec: observabilityv1.PrometheusClusterSpec{
+			Replicas: 1,
+			AdditionalScrapeConfigs: &observabilityv1.AdditionalScrapeConfigs{
+				Inline: "- job_name: x\n",
+				SecretRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "s"},
+					Key:                  "k",
+				},
+			},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("want mutually-exclusive error, got %v", err)
+	}
+}
+
+func TestValidateRejectsEmptyAdditionalScrapeConfigs(t *testing.T) {
 	v := &PrometheusClusterValidator{}
 	err := v.Validate(&observabilityv1.PrometheusCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "demo"},
 		Spec: observabilityv1.PrometheusClusterSpec{
 			Replicas:                1,
-			AdditionalScrapeConfigs: "- job_name: x\n  static_configs:\n    - targets: [a:1]\n",
+			AdditionalScrapeConfigs: &observabilityv1.AdditionalScrapeConfigs{},
 		},
 	})
-	if err != nil {
-		t.Fatalf("want nil, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "additionalScrapeConfigs") {
+		t.Fatalf("want required error, got %v", err)
 	}
 }
 

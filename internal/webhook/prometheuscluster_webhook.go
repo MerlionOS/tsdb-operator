@@ -81,13 +81,33 @@ func (v *PrometheusClusterValidator) validate(pc *observabilityv1.PrometheusClus
 		}
 	}
 
-	if pc.Spec.AdditionalScrapeConfigs != "" {
-		// Prometheus' scrape_config_files expects a top-level YAML list
-		// of scrape entries. Catch the most common shape mistakes here.
-		var probe []map[string]any
-		if err := yaml.Unmarshal([]byte(pc.Spec.AdditionalScrapeConfigs), &probe); err != nil {
-			errs = append(errs, field.Invalid(specPath.Child("additionalScrapeConfigs"),
-				"<elided>", "must be a YAML list of scrape_config entries: "+err.Error()))
+	if asc := pc.Spec.AdditionalScrapeConfigs; asc != nil {
+		ascPath := specPath.Child("additionalScrapeConfigs")
+		hasInline := asc.Inline != ""
+		hasSecret := asc.SecretRef != nil
+		switch {
+		case hasInline && hasSecret:
+			errs = append(errs, field.Invalid(ascPath, "<elided>",
+				"inline and secretRef are mutually exclusive"))
+		case !hasInline && !hasSecret:
+			errs = append(errs, field.Required(ascPath,
+				"set inline or secretRef when additionalScrapeConfigs is present"))
+		case hasInline:
+			// Inline must be a top-level YAML list of scrape entries.
+			var probe []map[string]any
+			if err := yaml.Unmarshal([]byte(asc.Inline), &probe); err != nil {
+				errs = append(errs, field.Invalid(ascPath.Child("inline"),
+					"<elided>", "must be a YAML list of scrape_config entries: "+err.Error()))
+			}
+		case hasSecret:
+			if asc.SecretRef.Name == "" {
+				errs = append(errs, field.Required(ascPath.Child("secretRef").Child("name"),
+					"secretRef.name is required"))
+			}
+			if asc.SecretRef.Key == "" {
+				errs = append(errs, field.Required(ascPath.Child("secretRef").Child("key"),
+					"secretRef.key is required"))
+			}
 		}
 	}
 

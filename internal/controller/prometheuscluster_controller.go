@@ -176,8 +176,8 @@ func (r *PrometheusClusterReconciler) reconcileConfigMap(ctx context.Context, pc
 			cm.Data = map[string]string{}
 		}
 		cm.Data["prometheus.yml"] = renderConfig(pc)
-		if pc.Spec.AdditionalScrapeConfigs != "" {
-			cm.Data[additionalScrapeFile] = wrapScrapeConfigs(pc.Spec.AdditionalScrapeConfigs)
+		if asc := pc.Spec.AdditionalScrapeConfigs; asc != nil && asc.Inline != "" {
+			cm.Data[additionalScrapeFile] = wrapScrapeConfigs(asc.Inline)
 		} else {
 			delete(cm.Data, additionalScrapeFile)
 		}
@@ -227,8 +227,28 @@ func resourceMustParseOrZero(s string) *resource.Quantity {
 }
 
 // additionalScrapeFile is the ConfigMap key (and basename inside the
-// /etc/prometheus mount) for spec.additionalScrapeConfigs.
+// /etc/prometheus mount) for spec.additionalScrapeConfigs.Inline.
 const additionalScrapeFile = "additional-scrape-configs.yml"
+
+// extraSecretMount is where SecretRef is mounted into the Prometheus
+// container; the file basename is the Secret key.
+const extraSecretMount = "/etc/prometheus/extra-secret"
+
+// additionalScrapePath returns the absolute file path to reference from
+// scrape_config_files, or "" when no additional config is configured.
+func additionalScrapePath(pc *observabilityv1.PrometheusCluster) string {
+	asc := pc.Spec.AdditionalScrapeConfigs
+	if asc == nil {
+		return ""
+	}
+	if asc.Inline != "" {
+		return "/etc/prometheus/" + additionalScrapeFile
+	}
+	if asc.SecretRef != nil {
+		return extraSecretMount + "/" + asc.SecretRef.Key
+	}
+	return ""
+}
 
 // wrapScrapeConfigs takes the user's bare YAML list of scrape entries and
 // wraps it under a `scrape_configs:` key so the file matches what
@@ -265,10 +285,11 @@ func renderConfig(pc *observabilityv1.PrometheusCluster) string {
 		fmt.Fprintf(&b, "  external_labels:\n    cluster: %q\n    replica: ${POD_NAME:-unknown}\n", pc.Name)
 	}
 	b.WriteString(scrapeConfig)
-	if pc.Spec.AdditionalScrapeConfigs != "" {
-		// Prometheus 2.43+ scrape_config_files: load extra scrape entries from
-		// the ConfigMap key mounted alongside prometheus.yml.
-		fmt.Fprintf(&b, "scrape_config_files:\n  - /etc/prometheus/%s\n", additionalScrapeFile)
+	if path := additionalScrapePath(pc); path != "" {
+		// Prometheus 2.43+ scrape_config_files: load extra scrape entries
+		// from a file. The file may live in the operator-managed ConfigMap
+		// (Inline) or in a user-supplied Secret (SecretRef).
+		fmt.Fprintf(&b, "scrape_config_files:\n  - %s\n", path)
 	}
 	if len(pc.Spec.RemoteWrite) == 0 {
 		return b.String()
@@ -394,6 +415,23 @@ func (r *PrometheusClusterReconciler) buildStatefulSet(pc *observabilityv1.Prome
 		containers = append(containers, sidecar)
 		if extraVolume != nil {
 			volumes = append(volumes, *extraVolume)
+		}
+	}
+
+	if asc := pc.Spec.AdditionalScrapeConfigs; asc != nil && asc.SecretRef != nil {
+		volumes = append(volumes, corev1.Volume{
+			Name: "extra-scrape-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{SecretName: asc.SecretRef.Name},
+			},
+		})
+		// Mount on the Prometheus container (containers[1]; reloader is [0]).
+		for i := range containers {
+			if containers[i].Name == "prometheus" {
+				containers[i].VolumeMounts = append(containers[i].VolumeMounts, corev1.VolumeMount{
+					Name: "extra-scrape-secret", MountPath: extraSecretMount, ReadOnly: true,
+				})
+			}
 		}
 	}
 

@@ -147,18 +147,37 @@ type PrometheusClusterSpec struct {
 	// +optional
 	Thanos ThanosSpec `json:"thanos,omitempty"`
 
-	// AdditionalScrapeConfigs is an inline YAML list of Prometheus scrape
-	// configuration entries that the operator merges into the generated
-	// prometheus.yml via the native scrape_config_files mechanism.
-	// Format: top-level YAML list, e.g.
+	// AdditionalScrapeConfigs supplies user-side scrape configuration
+	// merged into the generated prometheus.yml via the native
+	// scrape_config_files mechanism (Prometheus 2.43+).
+	// Exactly one of `inline` or `secretRef` may be set.
+	// +optional
+	AdditionalScrapeConfigs *AdditionalScrapeConfigs `json:"additionalScrapeConfigs,omitempty"`
+}
+
+// AdditionalScrapeConfigs carries either inline YAML or a reference to a
+// Secret that holds the scrape configuration. Mutually exclusive — the
+// admission webhook rejects setting both.
+type AdditionalScrapeConfigs struct {
+	// Inline is a top-level YAML list of scrape entries, e.g.
 	//
 	//   - job_name: my-app
 	//     static_configs:
 	//       - targets: [my-app:8080]
 	//
-	// Requires Prometheus 2.43+ (the default image satisfies this).
+	// The operator wraps it under a `scrape_configs:` key in the
+	// generated ConfigMap. Use this when the config is small enough to
+	// live in the CR.
 	// +optional
-	AdditionalScrapeConfigs string `json:"additionalScrapeConfigs,omitempty"`
+	Inline string `json:"inline,omitempty"`
+
+	// SecretRef references a Secret containing a fully-formed Prometheus
+	// scrape config file (must already include the top-level
+	// `scrape_configs:` key). The Secret is mounted into the Prometheus
+	// container at /etc/prometheus/extra-secret/<key>. Use this for
+	// configs too large or sensitive to inline.
+	// +optional
+	SecretRef *corev1.SecretKeySelector `json:"secretRef,omitempty"`
 }
 
 // PrometheusClusterStatus defines the observed state of PrometheusCluster.
