@@ -6,56 +6,65 @@ What's shipped, what's next, what we're deliberately not doing.
 
 ## Shipped
 
+### v0.5.0 — 2026-04-13
+
+Multi-cluster aggregation. `PrometheusClusterSet` cluster-scoped CRD
+groups `PrometheusCluster`s by label across namespaces; status reports
+membership + per-phase counts. REST API + envtest + kind-verified.
+
+### v0.4.0 — 2026-04-13
+
+Audit-log hardening. The logger is finally instantiated by
+`cmd/main.go`; adds `Prune` + periodic pruner, three new metrics, and
+Helm chart plumbing.
+
 ### v0.3.1 — 2026-04-13
 
-Three Thanos-sidecar bugs caught during kind verification
-(`--storage.tsdb.{min,max}-block-duration`, duplicate `global:` block,
-missing `external_labels`). Patch release, recommended for any user on
-0.3.0 with `spec.thanos.enabled`.
+Three Thanos-sidecar bugs fixed after kind verification.
 
 ### v0.3.0 — 2026-04-13
 
-Ecosystem release. Opt-in Thanos sidecar (`spec.thanos.enabled`) plus a
-bidirectional `prometheus-operator ↔ tsdb-operator` migration guide.
+Opt-in Thanos sidecar + bidirectional prometheus-operator migration
+guide.
 
 ### v0.2.0 — 2026-04-13
 
-Hardening. REST API wired into the manager + TLS via cert-manager;
-end-to-end tests on kind; four real bugs fixed
-(double `SetupSignalHandler`, template diff, scheduler never registered,
-REST API never started).
+Hardening. REST API wired into the manager + cert-manager TLS; four real
+bugs fixed from kind verification.
 
 ### v0.1.0 — 2026-04-13
 
-First tagged release. `PrometheusCluster` CRD, reconciler, HA checker,
-S3 backup scheduler, PostgreSQL audit log, gin REST API, Helm chart.
+First tagged release. Everything core.
 
-See [`CHANGELOG.md`](CHANGELOG.md) for the per-release details.
+See [`CHANGELOG.md`](CHANGELOG.md) for per-release detail.
 
-## Next up — v0.4.0
+## Milestone 4 — done ✅
 
-Milestone 4 still has two pieces; v0.4.0 picks one (TBD).
-
-- [ ] **`PrometheusClusterSet` CRD.** Cross-namespace aggregation with
-  shared backup / audit policy. The flagship multi-cluster feature.
-- [ ] **Audit log retention policy.** Partitioned `audit_log` table +
-  periodic prune + metrics on row counts. Short, self-contained.
+All four Milestone-4 items shipped: Thanos sidecar (v0.3), migration
+guide (v0.3), audit retention (v0.4), `PrometheusClusterSet` (v0.5).
 
 ## Later
 
+Open follow-ups. Not yet grouped into a release.
+
+- [ ] **Auto-overlay `backupTemplate` onto Set members.** v0.5.0
+  records the template in spec but doesn't mutate member CRs. Needs an
+  "owner of truth" policy (always overlay vs only-if-empty) and a way
+  for members to opt out.
 - [ ] **Smarter backup artifact.** Today the scheduler uploads the
-  admin-API JSON response; the on-disk snapshot directory still needs to
-  be tarred and shipped for a true point-in-time restore. Tracked at the
+  admin-API JSON; the on-disk snapshot directory still needs to be
+  tarred and shipped for a true point-in-time restore. Tracked at the
   top of [`docs/RESTORE.md`](docs/RESTORE.md).
-- [ ] **Webhook validation.** Reject invalid `spec.backup.schedule` cron
-  expressions at admission time rather than at cron-fire time.
+- [ ] **Admission webhook.** Reject invalid `spec.backup.schedule`
+  cron expressions at admission time rather than at cron-fire time.
 - [ ] **Per-cluster scrape config.** A user-side way to layer additional
   `scrape_configs` onto the generated `prometheus.yml` without hand-
   editing the ConfigMap.
+- [ ] **Cross-Kubernetes federation.** Today a `PrometheusClusterSet`
+  spans namespaces, not clusters. A future `PrometheusClusterFederation`
+  could aggregate across kubeconfigs.
 
 ## Non-goals
-
-To keep scope honest:
 
 - Not reimplementing a TSDB. Prometheus stays the engine.
 - Not competing with Thanos / Mimir / VM on global query.
