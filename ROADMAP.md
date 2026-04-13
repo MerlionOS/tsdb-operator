@@ -6,6 +6,12 @@ What's shipped, what's next, what we're deliberately not doing.
 
 ## Shipped
 
+### v0.7.0 — 2026-04-13
+
+Validating admission webhook. Invalid `spec.replicas`, missing
+`backup.bucket`, bad cron, empty `remoteWrite[].url` are rejected at
+`kubectl apply` time. cert-manager-backed TLS via Helm.
+
 ### v0.6.0 — 2026-04-13
 
 Real backup artifact. Tar-streams the on-disk snapshot directory out of
@@ -42,25 +48,32 @@ First tagged release. Everything core.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for per-release detail.
 
-## Next up — v0.7.0
+## Next up — v0.8.0
 
-- [ ] **Admission webhook.** Reject invalid `spec.backup.schedule` cron
-  expressions and other bad spec shapes at admission time rather than at
-  cron-fire time. Validating webhook + cert-manager plumbing in the
-  chart.
+- [ ] **Auto-overlay `backupTemplate` onto Set members.** v0.5.0 records
+  the template in spec but doesn't mutate member CRs. This closes that
+  loop so `PrometheusClusterSet` becomes a real policy object, not just
+  a dashboard.
+  - Policy: overlay only when the member's `spec.backup.enabled` is
+    unset / false; members always win on any field they explicitly set.
+  - Opt-out: per-member annotation
+    `observability.merlionos.org/clusterset-opt-out: "true"`.
+  - Scope: one new Set→member projection pass in the Set reconciler,
+    conflict detection, owner-reference decision (don't re-parent,
+    just label), envtest coverage.
 
 ## Later
 
-- [ ] **Auto-overlay `backupTemplate` onto Set members.** v0.5.0 records
-  the template in spec but doesn't mutate member CRs. Needs an "owner of
-  truth" policy (always vs only-if-empty) and a way for members to opt
-  out.
-- [ ] **Per-cluster scrape config.** A user-side way to layer additional
-  `scrape_configs` onto the generated `prometheus.yml` without hand-
-  editing the ConfigMap.
-- [ ] **Cross-Kubernetes federation.** Today a `PrometheusClusterSet`
-  spans namespaces, not clusters. A future `PrometheusClusterFederation`
-  could aggregate across kubeconfigs.
+Smaller scope next to v0.8.0; not yet committed to a release.
+
+- [ ] **Per-cluster scrape config layering.** `spec.additionalScrapeConfigs`
+  (inline YAML or secret ref) merged into the generated `prometheus.yml`
+  without users hand-editing the ConfigMap. Highest user value among the
+  remaining items; medium scope.
+- [ ] **Cross-Kubernetes federation.** A future
+  `PrometheusClusterFederation` aggregates `PrometheusClusterSet`s
+  across kubeconfigs. Largest item here: needs multi-cluster client
+  management, auth, cross-cluster watch. Likely two releases, not one.
 
 ## Non-goals
 

@@ -6,6 +6,12 @@ English: [ROADMAP.md](ROADMAP.md)
 
 ## 已交付
 
+### v0.7.0 — 2026-04-13
+
+Validating admission webhook。非法 `spec.replicas`、缺 `backup.bucket`、
+坏 cron、空 `remoteWrite[].url` 在 `kubectl apply` 时就被拒。Helm 经
+cert-manager 签发 TLS。
+
 ### v0.6.0 — 2026-04-13
 
 真实备份产物。通过 SPDY exec 把 Prometheus Pod 上的快照目录 tar 流
@@ -40,22 +46,29 @@ Hardening。REST API 接入 manager + cert-manager TLS；kind 验证暴露的
 
 逐 release 明细见 [`CHANGELOG.md`](CHANGELOG.md)。
 
-## 下一个版本 v0.7.0
+## 下一个版本 v0.8.0
 
-- [ ] **Admission webhook。** 在 admission 阶段拒绝非法的
-  `spec.backup.schedule` cron 表达式和其他坏 spec，而不是等 cron
-  触发时才报错。Validating webhook + Chart 里的 cert-manager 配线。
+- [ ] **把 Set 的 `backupTemplate` 自动 overlay 到成员。** v0.5.0 在 spec
+  里记下了 template 但没有真正改成员 CR。做完这个，`PrometheusClusterSet`
+  就从"看板"变成真正的策略对象。
+  - 策略：仅当成员 `spec.backup.enabled` 未设置 / false 时 overlay；
+    成员显式设置的字段始终赢。
+  - 退出机制：成员注解
+    `observability.merlionos.org/clusterset-opt-out: "true"`。
+  - Scope：Set reconciler 里新增一次 Set→成员的投影，冲突检测，
+    owner-reference 决策（不 re-parent，只打 label），envtest 覆盖。
 
 ## 以后
 
-- [ ] **Set 把 `backupTemplate` 自动 overlay 到成员。** v0.5.0 只在 spec
-  里记下 template，没有真正改成员 CR。需要一个"谁说了算"的策略（总是
-  overlay 还是仅在成员未设置时）以及成员退出该策略的方式。
-- [ ] **可组合抓取配置。** 让用户能不手改 ConfigMap 就往生成的
-  `prometheus.yml` 上叠加额外的 `scrape_configs`。
-- [ ] **跨 Kubernetes 联邦。** 当前 `PrometheusClusterSet` 是跨 namespace
-  不是跨 cluster。未来可以加 `PrometheusClusterFederation` 基于
-  kubeconfig 做跨集群聚合。
+相对 v0.8.0 更小的候选，还没编进 release：
+
+- [ ] **可组合的抓取配置。** `spec.additionalScrapeConfigs`（inline YAML
+  或 secret ref）合并进生成的 `prometheus.yml`，不用手改 ConfigMap。
+  剩下几项里用户价值最高；中 scope。
+- [ ] **跨 Kubernetes 联邦。** 未来的
+  `PrometheusClusterFederation` 按 kubeconfig 聚合多个
+  `PrometheusClusterSet`。剩下几项里最大的：需要多集群 client 管理、
+  认证、跨集群 watch。可能要拆两个 release。
 
 ## Non-goals（明确不做的事）
 
