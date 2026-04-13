@@ -14,7 +14,17 @@ spec:
     singular: prometheuscluster
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.readyReplicas
+      name: Ready
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
     schema:
       openAPIV3Schema:
         description: PrometheusCluster is the Schema for the prometheusclusters API
@@ -119,7 +129,10 @@ spec:
                   region:
                     type: string
                   schedule:
-                    description: Cron expression for scheduled snapshots.
+                    description: |-
+                      Cron expression for scheduled snapshots. Standard 5-field cron
+                      syntax; deeper validation is done by the webhook.
+                    minLength: 1
                     type: string
                 type: object
               image:
@@ -171,6 +184,7 @@ spec:
                       type: string
                     url:
                       description: URL is the remote endpoint to ship samples to.
+                      minLength: 1
                       type: string
                   required:
                   - url
@@ -243,7 +257,10 @@ spec:
                 type: object
               retention:
                 default: 15d
-                description: Retention period for local TSDB data, e.g. "15d".
+                description: |-
+                  Retention period for local TSDB data, e.g. "15d".
+                  Accepts Prometheus duration syntax: [0-9]+(ms|s|m|h|d|w|y).
+                pattern: ^[0-9]+(ms|s|m|h|d|w|y)$
                 type: string
               storage:
                 description: Storage describes the per-replica PVC.
@@ -372,6 +389,11 @@ spec:
                 type: string
               phase:
                 description: Phase is the high-level lifecycle state.
+                enum:
+                - Provisioning
+                - Active
+                - Scaling
+                - Failed
                 type: string
               readyReplicas:
                 description: ReadyReplicas is the number of replicas reporting Ready.

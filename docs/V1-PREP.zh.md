@@ -105,11 +105,17 @@ v1 冻结之前要考虑改的东西：
 
 ## v1.0.0 tag 之前的 checklist
 
-- [ ] `additionalScrapeConfigs` 重构成结构体（上面项 1）
-- [ ] 默认 `image` 和 `spec.thanos.image` 升版
-- [ ] 每个 spec 字段的 `// +kubebuilder:validation:*` 标记 review 一遍
-- [ ] `kubectl explain prometheuscluster` 读起来通顺（每个字段都有
-  description）
+- [x] `additionalScrapeConfigs` 重构成结构体 —— **v0.11.0**
+- [x] `// +kubebuilder:validation:*` 标记 review：`remoteWrite[].url`
+  和 `backup.schedule` 加 MinLength，`retention` 加 Pattern（Prometheus
+  duration），`status.phase` 加 Enum
+- [x] Storage version：`PrometheusCluster` 和 `PrometheusClusterSet`
+  都加了 `+kubebuilder:storageversion`
+- [x] Print columns：`kubectl get prometheuscluster` 现在显示
+  Phase / Ready / Age；`kubectl get prometheusclusterset` 显示
+  Members / Age
+- [ ] 默认 `image` 和 `spec.thanos.image` 升版（留到 v1.0 cut 时挑
+  fresh 的稳定版本）
 - [ ] CHANGELOG 在 `## [1.0.0]` 段只列**有意为之**的 breaking changes
-- [ ] v0.10.x → v1.0 的迁移 note（用户要做一次性 CR 改动？）
-- [ ] Storage version：v1 上确认 `+kubebuilder:storageversion`
+- [ ] v0.x → v1.0 的迁移 note（唯一一次性 CR 改动就是 v0.11.0 的
+  `additionalScrapeConfigs` 形状）

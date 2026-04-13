@@ -116,12 +116,18 @@ in spirit:
 
 ## Checklist before tagging v1.0.0
 
-- [ ] `additionalScrapeConfigs` refactored to struct (item 1 above)
-- [ ] Default `image` and `spec.thanos.image` bumped
-- [ ] `// +kubebuilder:validation:*` markers reviewed for every spec field
-- [ ] `kubectl explain prometheuscluster` reads cleanly (descriptions
-  on every field)
+- [x] `additionalScrapeConfigs` refactored to struct — **v0.11.0**
+- [x] `// +kubebuilder:validation:*` markers reviewed: MinLength on
+  `remoteWrite[].url` and `backup.schedule`, Pattern on `retention`
+  (Prometheus duration), Enum on `status.phase`
+- [x] Storage version: `+kubebuilder:storageversion` on both
+  `PrometheusCluster` and `PrometheusClusterSet`
+- [x] Print columns: `kubectl get prometheuscluster` now shows
+  Phase / Ready / Age; `kubectl get prometheusclusterset` shows
+  Members / Age
+- [ ] Default `image` and `spec.thanos.image` bumped (defer to v1.0
+  cut — pick fresh stable versions at release time)
 - [ ] CHANGELOG entry under `## [1.0.0]` listing only the
   intentional breaking changes
-- [ ] Migration note for v0.10.x → v1.0 users (one-time CR edit?)
-- [ ] Storage version: `+kubebuilder:storageversion` confirmed on v1
+- [ ] Migration note for v0.x → v1.0 users (the only one-time CR edit
+  was v0.11.0's `additionalScrapeConfigs` shape)

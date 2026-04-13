@@ -46,7 +46,9 @@ type S3BackupSpec struct {
 	// Prefix under which snapshot objects are stored.
 	// +optional
 	Prefix string `json:"prefix,omitempty"`
-	// Cron expression for scheduled snapshots.
+	// Cron expression for scheduled snapshots. Standard 5-field cron
+	// syntax; deeper validation is done by the webhook.
+	// +kubebuilder:validation:MinLength=1
 	// +optional
 	Schedule string `json:"schedule,omitempty"`
 	// CredentialsSecretRef references a Secret with AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
@@ -60,6 +62,7 @@ type S3BackupSpec struct {
 type RemoteWriteSpec struct {
 	// URL is the remote endpoint to ship samples to.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url"`
 
 	// Name is an optional label for the queue (used in Prometheus metrics).
@@ -124,7 +127,9 @@ type PrometheusClusterSpec struct {
 	Image string `json:"image,omitempty"`
 
 	// Retention period for local TSDB data, e.g. "15d".
+	// Accepts Prometheus duration syntax: [0-9]+(ms|s|m|h|d|w|y).
 	// +kubebuilder:default="15d"
+	// +kubebuilder:validation:Pattern=`^[0-9]+(ms|s|m|h|d|w|y)$`
 	Retention string `json:"retention,omitempty"`
 
 	// Storage describes the per-replica PVC.
@@ -203,6 +208,7 @@ type PrometheusClusterStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// Phase is the high-level lifecycle state.
+	// +kubebuilder:validation:Enum=Provisioning;Active;Scaling;Failed
 	// +optional
 	Phase ClusterPhase `json:"phase,omitempty"`
 
@@ -221,6 +227,10 @@ type PrometheusClusterStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
+// +kubebuilder:printcolumn:name="Ready",type=integer,JSONPath=`.status.readyReplicas`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // PrometheusCluster is the Schema for the prometheusclusters API
 type PrometheusCluster struct {

@@ -93,6 +93,9 @@ type SetMember struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Members",type=integer,JSONPath=`.status.memberCount`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // PrometheusClusterSet is the Schema for the prometheusclustersets API
 type PrometheusClusterSet struct {

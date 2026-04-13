@@ -14,7 +14,14 @@ spec:
     singular: prometheusclusterset
   scope: Cluster
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - jsonPath: .status.memberCount
+      name: Members
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
     schema:
       openAPIV3Schema:
         description: PrometheusClusterSet is the Schema for the prometheusclustersets
@@ -74,7 +81,10 @@ spec:
                   region:
                     type: string
                   schedule:
-                    description: Cron expression for scheduled snapshots.
+                    description: |-
+                      Cron expression for scheduled snapshots. Standard 5-field cron
+                      syntax; deeper validation is done by the webhook.
+                    minLength: 1
                     type: string
                 type: object
               clusterSelector:
