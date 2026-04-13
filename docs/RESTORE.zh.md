@@ -4,12 +4,10 @@ English: [RESTORE.md](RESTORE.md)
 
 从 `tsdb-operator` 写到 S3/MinIO 的备份里把 Prometheus 集群拉回来。
 
-> **备份模型说明。** tsdb-operator 通过 cron 把 Prometheus admin API
-> snapshot 的响应体写到 S3。快照本身是 Pod 里
-> `/prometheus/snapshots/<ts>/` 下的一组硬链接 TSDB block，生产级
-> 备份应该把这个目录 tar 打包后上传；当前调度器上传的是 admin API 响应体，
-> 更像一个 marker。本 runbook 按"有 tar 归档"写，实际用时按你真实上传的
-> 产物调整第 3 步的 `tar` 命令。详情见
+> **备份模型。** v0.6.0 起调度器从 Prometheus Pod 的
+> `/prometheus/snapshots/<ts>/` 把磁盘上的快照目录 tar 流式 multipart
+> 上传到 S3，然后删除目录释放磁盘。归档里是真实的 TSDB block（chunks、
+> index、meta.json），可恢复。详情见
 > [ADR-0002](adr/0002-scheduled-snapshots-vs-continuous-remote-write.md)。
 
 ## 什么时候要恢复

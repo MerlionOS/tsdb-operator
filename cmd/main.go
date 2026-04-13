@@ -236,13 +236,19 @@ func main() {
 			setupLog.Error(err, "Failed to load AWS config")
 			os.Exit(1)
 		}
-		s3Client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+		s3Raw := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
 			if s3Endpoint != "" {
 				o.BaseEndpoint = aws.String(s3Endpoint)
 				o.UsePathStyle = true
 			}
 		})
-		scheduler := backup.New(mgr.GetClient(), s3Client)
+		scheduler := backup.New(mgr.GetClient(), backup.NewS3Client(s3Raw))
+		execer, err := backup.NewSPDYExecutor(mgr.GetConfig())
+		if err != nil {
+			setupLog.Error(err, "Failed to build pod exec'er")
+			os.Exit(1)
+		}
+		scheduler.Exec = execer
 		reconciler.BackupSchedule = scheduler
 		if err := mgr.Add(runnableFunc(scheduler.Start)); err != nil {
 			setupLog.Error(err, "Failed to add backup scheduler")

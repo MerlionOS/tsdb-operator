@@ -6,6 +6,49 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-04-13
+
+Real backups. Closes the biggest honesty gap in the project: from v0.1.0
+until now the scheduler uploaded the admin-API JSON response as the
+"backup artifact" — a marker, not something you could restore from. This
+release replaces that with a proper tar of the on-disk snapshot
+directory, streamed via S3 multipart, with on-pod cleanup afterwards.
+Verified end-to-end on kind+MinIO: a 1-minute cron produced 108–112 KiB
+tarballs containing real TSDB blocks (chunks, index, meta.json).
+
+### Added
+
+- `PodExecutor` interface and `SPDYExecutor` implementation using
+  `k8s.io/client-go/tools/remotecommand`. Invoked with
+  `tar -C /prometheus/snapshots -cf - <snapshot-name>` to stream the
+  snapshot dir out of the pod.
+- Multipart streaming upload via the s3 `manager.Uploader`
+  (`backup.S3Client.StreamUpload`). Required because `PutObject` rejects
+  unseekable pipe readers over plain HTTP.
+- Snapshot admin-API response parser — the returned directory name is
+  what gets tarred and then deleted.
+- Best-effort cleanup: `rm -rf /prometheus/snapshots/<name>` after a
+  successful upload so snapshot dirs don't accumulate on the PVC.
+- RBAC: `pods/exec` create verb added to the Helm ClusterRole.
+- Fallback path preserved: when `Exec` is nil (unit tests, non-cluster
+  contexts), the scheduler still uploads the admin-API response so
+  existing tests keep their shape.
+
+### Changed
+
+- `backup.Uploader` interface gains `StreamUpload`. Existing PutObject
+  callers continue to work; streaming goes through the new method.
+- `docs/RESTORE.{en,zh}.md` header rewritten — no more "this is a marker,
+  adjust the tar step yourself" caveat.
+
+### Fixed
+
+- `PutObject, compute input header checksum failed, unseekable stream is
+  not supported without TLS and trailing checksum` — surfaced during
+  kind verification when piping an `io.PipeReader` into PutObject.
+
+[0.6.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.6.0
+
 ## [0.5.0] — 2026-04-13
 
 Multi-cluster aggregation. Adds the `PrometheusClusterSet` cluster-scoped

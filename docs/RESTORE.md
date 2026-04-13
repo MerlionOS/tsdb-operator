@@ -5,14 +5,13 @@
 How to bring a Prometheus cluster back from a backup that `tsdb-operator`
 shipped to S3/MinIO.
 
-> **Backup model reminder.** tsdb-operator writes the Prometheus admin-API
-> snapshot payload to S3 on a cron. The snapshot itself is a set of
-> hard-linked TSDB blocks inside the pod's `/prometheus/snapshots/<ts>/`
-> directory. A production-grade backup would tar that directory and upload
-> the archive; today the scheduler uploads the admin-API response body,
-> which is a marker. Restore in this runbook assumes the archive path —
-> adjust the `tar` step for whatever artifact your backup pipeline uploads.
-> See [ADR-0002](adr/0002-scheduled-snapshots-vs-continuous-remote-write.md).
+> **Backup model.** Since v0.6.0 the scheduler tar-streams the on-disk
+> snapshot directory (`/prometheus/snapshots/<ts>/`) from the Prometheus
+> pod into S3 via multipart upload, then deletes the directory to free
+> disk. The archive contains real TSDB blocks (chunks, index, meta.json)
+> and is restorable. See
+> [ADR-0002](adr/0002-scheduled-snapshots-vs-continuous-remote-write.md)
+> for the rationale.
 
 ## When to restore
 
