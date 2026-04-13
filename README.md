@@ -13,6 +13,55 @@ StatefulSets, PVCs, headless services, health checks, snapshotting, off-cluster
 backups, and a record of who changed what. `tsdb-operator` turns that into a
 single declarative CRD (`PrometheusCluster`) and a small control plane.
 
+## Features
+
+**Cluster lifecycle**
+- `PrometheusCluster` CRD → StatefulSet + headless Service + ConfigMap + PVC
+- Finalizer-based cleanup; phase reporting (`Provisioning` / `Active` / `Scaling` / `Failed`)
+- Scale, image upgrade, retention change reconciled via full pod-template diff
+
+**High availability**
+- Periodic `/-/ready` probes across replicas
+- Unhealthy pods deleted to trigger rescheduling, `LastFailoverTime` + K8s Events recorded
+
+**Backup & restore**
+- Cron-driven Prometheus admin snapshot → `tar` streamed via SPDY exec → S3 multipart upload
+- On-pod snapshot-dir cleanup after successful upload
+- `tsdb-ctl` CLI: `list` / `restore` against any S3-compatible endpoint (MinIO, AWS, etc.)
+
+**Thanos sidecar (opt-in)**
+- `spec.thanos.enabled: true` attaches a sidecar sharing the `/prometheus` volume
+- Automatic `--enable-feature=expand-external-labels` + per-pod `replica` label
+- Object-store config via Secret reference
+
+**Remote write**
+- `spec.remoteWrite` renders into `prometheus.yml` with `basicAuth` / `bearerToken` Secret refs
+
+**Multi-namespace aggregation**
+- `PrometheusClusterSet` (cluster-scoped CRD) selects clusters by label across namespaces
+- Status reports member count, per-phase histogram, and member list
+
+**Admission validation (opt-in)**
+- Validating webhook rejects bad `spec.replicas`, missing `backup.bucket`, bad cron,
+  empty `remoteWrite[].url` at `kubectl apply` time
+- cert-manager-backed TLS via Helm values
+
+**Audit log (opt-in)**
+- PostgreSQL-backed `audit_log`, every cluster mutation + backup event recorded
+- Retention policy (`--audit-retention-days`) with periodic pruner
+
+**REST API (opt-in)**
+- gin-based: `/api/clusters`, `/api/clustersets`, `/api/clusters/:name/{backup,audit}`
+- cert-manager TLS supported
+
+**Observability**
+- Prometheus metrics: `tsdb_operator_{cluster_phase,backup_total,failover_total,audit_*}`
+- Grafana dashboard at `grafana/dashboards/tsdb-operator.json`
+
+**Packaging**
+- Helm chart at `charts/tsdb-operator/` with feature flags for every subsystem
+- envtest + kind e2e; every release verified against a real kind cluster
+
 > Why snapshot to S3 when PVCs exist? See
 > [`docs/BACKUPS.en.md`](docs/BACKUPS.en.md) ([中文](docs/BACKUPS.zh.md)).
 >

@@ -30,6 +30,55 @@ StatefulSet、PVC、Headless Service、健康检查、快照、异地备份、
 谁在什么时候改了什么。`tsdb-operator` 把这些统一封装成一个声明式的
 CRD (`PrometheusCluster`) 和一个小而清晰的控制面。
 
+## 特性
+
+**集群生命周期**
+- `PrometheusCluster` CRD → StatefulSet + headless Service + ConfigMap + PVC
+- 基于 finalizer 的清理；phase 上报（`Provisioning` / `Active` / `Scaling` / `Failed`）
+- 扩缩容、镜像升级、retention 修改通过完整 pod-template diff 自动下发
+
+**高可用**
+- 跨副本定期 `/-/ready` 探活
+- 不健康 Pod 被剔除触发重建，更新 `LastFailoverTime` 并写 K8s Event
+
+**备份与恢复**
+- Cron → Prometheus admin snapshot → SPDY exec 流 `tar` → S3 multipart 上传
+- 上传成功后清理 Pod 上的 snapshot 目录
+- `tsdb-ctl` CLI：`list` / `restore`，支持任何 S3 兼容端点（MinIO / AWS 等）
+
+**Thanos sidecar（可选）**
+- `spec.thanos.enabled: true` 挂 sidecar，共享 `/prometheus` 数据卷
+- 自动加 `--enable-feature=expand-external-labels` + 每 Pod 独立 `replica` 标签
+- 对象存储配置通过 Secret 引用
+
+**Remote write**
+- `spec.remoteWrite` 生成到 `prometheus.yml`，支持 `basicAuth` / `bearerToken` Secret
+
+**跨 namespace 聚合**
+- `PrometheusClusterSet`（cluster-scoped CRD）按 label 跨 namespace 选中集群
+- Status 报告成员数、phase 直方图、成员清单
+
+**Admission 校验（可选）**
+- Validating webhook 在 `kubectl apply` 时就拒绝坏 `spec.replicas`、缺 `backup.bucket`、
+  坏 cron、空 `remoteWrite[].url`
+- 通过 Helm values 配置 cert-manager 签发的 TLS
+
+**审计日志（可选）**
+- `audit_log` 由 PostgreSQL 支撑，每次 cluster 变更 + 备份事件都落库
+- 保留策略（`--audit-retention-days`）+ 定期 pruner
+
+**REST API（可选）**
+- 基于 gin：`/api/clusters`、`/api/clustersets`、`/api/clusters/:name/{backup,audit}`
+- 支持 cert-manager TLS
+
+**可观测性**
+- Prometheus metrics：`tsdb_operator_{cluster_phase,backup_total,failover_total,audit_*}`
+- Grafana 面板位于 `grafana/dashboards/tsdb-operator.json`
+
+**打包**
+- `charts/tsdb-operator/` Helm chart，每个子系统都有独立 feature flag
+- envtest + kind e2e；每个 release 都在真 kind 集群上验证过
+
 ## 架构
 
 ```
