@@ -106,7 +106,10 @@ spec:
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(func(g Gomega) {
-			args := getField("statefulset", clusterName, "{.spec.template.spec.containers[0].args}")
+			// The Prometheus container isn't always at index 0 (the
+			// config-reloader sidecar may come first). Find by name.
+			args := getField("statefulset", clusterName,
+				`{.spec.template.spec.containers[?(@.name=="prometheus")].args}`)
 			g.Expect(args).To(ContainSubstring("--web.enable-admin-api"))
 		}, 2*time.Minute, 3*time.Second).Should(Succeed())
 	})
