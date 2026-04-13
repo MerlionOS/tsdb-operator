@@ -52,15 +52,20 @@ var _ = Describe("Manager", Ordered, func() {
 	// enforce the restricted security policy to the namespace, installing CRDs,
 	// and deploying the controller.
 	BeforeAll(func() {
-		By("creating manager namespace")
+		By("creating manager namespace (tolerating existing)")
+		// The PrometheusCluster lifecycle Describe may have already run
+		// `make deploy`, which creates this namespace. Don't fail on that.
 		cmd := exec.Command("kubectl", "create", "ns", namespace)
-		_, err := utils.Run(cmd)
-		Expect(err).NotTo(HaveOccurred(), "Failed to create namespace")
+		if _, err := utils.Run(cmd); err != nil {
+			// Accept "AlreadyExists"; fail loudly on anything else.
+			out, _ := utils.Run(exec.Command("kubectl", "get", "ns", namespace))
+			Expect(out).To(ContainSubstring(namespace), "namespace should exist")
+		}
 
 		By("labeling the namespace to enforce the restricted security policy")
 		cmd = exec.Command("kubectl", "label", "--overwrite", "ns", namespace,
 			"pod-security.kubernetes.io/enforce=restricted")
-		_, err = utils.Run(cmd)
+		_, err := utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to label namespace with restricted policy")
 
 		By("installing CRDs")
