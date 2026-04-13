@@ -12,6 +12,13 @@ features:
   ha: true
   backup: true
   api: true
+  audit: false   # requires audit.dsnSecretRef when true
+
+# Audit log (PostgreSQL). dsnSecretRef points at a Secret with key "dsn"
+# holding a postgres:// URL. retentionDays = 0 keeps everything.
+audit:
+  dsnSecretRef: ""
+  retentionDays: 0
 
 # REST API server settings. When tls.enabled is true, cert-manager must be
 # installed in the cluster and will issue a self-signed certificate into the

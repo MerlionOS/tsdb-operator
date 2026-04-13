@@ -6,6 +6,35 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-04-13
+
+Audit-log hardening. The `audit.Logger` has existed since v0.1.0 but was
+never actually instantiated by `cmd/main.go` — a gap this release closes,
+alongside a retention policy and metrics so the `audit_log` table
+doesn't grow forever.
+
+### Added
+
+- `cmd/main.go` flags: `--audit-dsn` (or `TSDB_AUDIT_DSN` env),
+  `--audit-retention-days`. When DSN is set, the logger is opened on
+  startup and handed to the REST API server, so
+  `GET /api/clusters/:name/audit` and the auto-recorded entries on
+  create/delete/backup routes actually work.
+- `audit.Logger.Prune(ctx, before)` deletes rows older than the given
+  cutoff and returns the count.
+- `audit.Logger.Start(ctx)` is a `manager.Runnable` pruner. Runs every
+  hour (configurable via `PruneInterval`) plus once on startup so the
+  effect is visible immediately. No-op when `RetentionDays == 0`.
+- Metrics: `tsdb_operator_audit_record_total{cluster,result}`,
+  `tsdb_operator_audit_prune_total`, `tsdb_operator_audit_rows`.
+- Helm chart: `features.audit`, `audit.dsnSecretRef`,
+  `audit.retentionDays`. DSN is plumbed via `TSDB_AUDIT_DSN` env from
+  a Secret.
+- Tests for `Prune`, `RowCount`, and pruner-start no-op using
+  `DATA-DOG/go-sqlmock`.
+
+[0.4.0]: https://github.com/MerlionOS/tsdb-operator/releases/tag/v0.4.0
+
 ## [0.3.1] — 2026-04-13
 
 Patch release. Three real bugs in the v0.3.0 Thanos sidecar path were

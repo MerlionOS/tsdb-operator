@@ -27,6 +27,9 @@ spec:
             - --enable-ha={{ .Values.features.ha }}
             - --enable-backup={{ .Values.features.backup }}
             - --enable-api={{ .Values.features.api }}
+            {{- if .Values.features.audit }}
+            - --audit-retention-days={{ .Values.audit.retentionDays }}
+            {{- end }}
             {{- if .Values.features.api }}
             - --api-namespace={{ .Values.api.namespace }}
             - --api-address=:8080
@@ -70,6 +73,16 @@ spec:
               port: healthz
             initialDelaySeconds: 5
             periodSeconds: 10
+          {{- if or .Values.s3.credentialsSecretName (and .Values.features.audit .Values.audit.dsnSecretRef) }}
+          env:
+            {{- if and .Values.features.audit .Values.audit.dsnSecretRef }}
+            - name: TSDB_AUDIT_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.audit.dsnSecretRef }}
+                  key: dsn
+            {{- end }}
+          {{- end }}
           {{- if .Values.s3.credentialsSecretName }}
           envFrom:
             - secretRef:

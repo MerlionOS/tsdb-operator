@@ -41,6 +41,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	observabilityv1 "github.com/MerlionOS/tsdb-operator/api/v1"
+	"github.com/MerlionOS/tsdb-operator/internal/audit"
 	"github.com/MerlionOS/tsdb-operator/internal/backup"
 	"github.com/MerlionOS/tsdb-operator/internal/controller"
 	"github.com/MerlionOS/tsdb-operator/internal/ha"
@@ -72,6 +73,8 @@ func main() {
 	var enableHA, enableBackup, enableAPI bool
 	var apiAddr, apiTLSCertDir, apiNamespace string
 	var s3Endpoint, s3Region string
+	var auditDSN string
+	var auditRetentionDays int
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -98,6 +101,10 @@ func main() {
 		"Directory with tls.crt and tls.key. If set, the REST API serves HTTPS.")
 	flag.StringVar(&apiNamespace, "api-namespace", "default",
 		"Namespace the REST API operates in.")
+	flag.StringVar(&auditDSN, "audit-dsn", os.Getenv("TSDB_AUDIT_DSN"),
+		"Postgres DSN for the audit log (or TSDB_AUDIT_DSN env). Disabled when empty.")
+	flag.IntVar(&auditRetentionDays, "audit-retention-days", 0,
+		"Prune audit rows older than N days (0 = keep forever).")
 	flag.StringVar(&s3Endpoint, "s3-endpoint", "", "Override the S3 endpoint URL (e.g. MinIO).")
 	flag.StringVar(&s3Region, "s3-region", "us-east-1", "Default S3 region for the backup client.")
 	opts := zap.Options{
@@ -241,11 +248,27 @@ func main() {
 		os.Exit(1)
 	}
 
+	var auditLogger *audit.Logger
+	if auditDSN != "" {
+		a, err := audit.Open(signalCtx, auditDSN)
+		if err != nil {
+			setupLog.Error(err, "Failed to open audit log")
+			os.Exit(1)
+		}
+		a.RetentionDays = auditRetentionDays
+		auditLogger = a
+		if err := mgr.Add(runnableFunc(auditLogger.Start)); err != nil {
+			setupLog.Error(err, "Failed to add audit pruner")
+			os.Exit(1)
+		}
+	}
+
 	if enableAPI {
 		srv := &apisrv.Server{
 			Client:     mgr.GetClient(),
 			Namespace:  apiNamespace,
 			TLSCertDir: apiTLSCertDir,
+			Audit:      auditLogger,
 		}
 		if err := mgr.Add(runnableFunc(func(ctx context.Context) error {
 			return srv.ListenAndServe(ctx, apiAddr)

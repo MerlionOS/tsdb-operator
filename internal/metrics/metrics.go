@@ -27,6 +27,24 @@ var (
 		Name: "tsdb_operator_failover_total",
 		Help: "Total number of replica failovers triggered.",
 	}, []string{"namespace", "cluster"})
+
+	// AuditRecordTotal counts audit rows written, labelled by cluster + result.
+	AuditRecordTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "tsdb_operator_audit_record_total",
+		Help: "Total audit entries recorded.",
+	}, []string{"cluster", "result"})
+
+	// AuditPruneTotal counts audit rows removed by the retention pruner.
+	AuditPruneTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "tsdb_operator_audit_prune_total",
+		Help: "Total audit rows deleted by the retention pruner.",
+	})
+
+	// AuditRows is the current row count of the audit_log table.
+	AuditRows = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tsdb_operator_audit_rows",
+		Help: "Current number of rows in the audit_log table.",
+	})
 )
 
 // Phases mirrors the enum in api/v1 so SetPhase can zero the others.
@@ -53,5 +71,8 @@ func DeleteCluster(namespace, cluster string) {
 }
 
 func init() {
-	metrics.Registry.MustRegister(ClusterPhase, BackupTotal, FailoverTotal)
+	metrics.Registry.MustRegister(
+		ClusterPhase, BackupTotal, FailoverTotal,
+		AuditRecordTotal, AuditPruneTotal, AuditRows,
+	)
 }
