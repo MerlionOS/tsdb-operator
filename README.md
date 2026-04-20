@@ -220,6 +220,16 @@ See [`ROADMAP.md`](ROADMAP.md) ([中文](ROADMAP.zh.md)).
 
 See [`docs/adr/`](docs/adr/) for the rationale behind key choices.
 
+## The Observability Epic (trilogy)
+
+A long-form essay tracing observability from ancient beacon towers to
+modern eBPF — and why Chinese and Western observability ecosystems
+diverged along lines already written three thousand years ago.
+
+- **Book I · [The Flame and the Eyes](drafts/wechat-epic-1-flame-and-eyes.en.md)** ([中文](drafts/wechat-epic-1-flame-and-eyes.zh.md)) — 771 BCE → 1858 CE: Eastern Qintianjian vs. Western Nightingale
+- **Book II · [Iron and Lightning](drafts/wechat-epic-2-iron-and-lightning.en.md)** ([中文](drafts/wechat-epic-2-iron-and-lightning.zh.md)) — 1837 → 2019: from Morse to OpenTelemetry
+- **Book III · [The Divergence and the Echo](drafts/wechat-epic-3-divergence-and-echo.en.md)** ([中文](drafts/wechat-epic-3-divergence-and-echo.zh.md)) — 2013 → today: the modern Sino-American divergence, and where `tsdb-operator` sits
+
 ## License
 
 Apache 2.0

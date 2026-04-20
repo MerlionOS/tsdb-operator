@@ -214,6 +214,15 @@ grafana/dashboards/       Operator 监控面板
 
 见 [`ROADMAP.zh.md`](ROADMAP.zh.md)（[English](ROADMAP.md)）。
 
+## 可观测性史诗（三部曲）
+
+一篇从古代烽火台讲到现代 eBPF 的长文 —— 以及为什么中西可观测性
+生态沿着三千年前就写好的两条线分叉。
+
+- **卷一 · [烽火与眼睛](drafts/wechat-epic-1-flame-and-eyes.zh.md)**（[English](drafts/wechat-epic-1-flame-and-eyes.en.md)）—— 公元前 771 年到 1858 年：东方钦天监路径 vs 西方 Nightingale 路径
+- **卷二 · [铁与电](drafts/wechat-epic-2-iron-and-lightning.zh.md)**（[English](drafts/wechat-epic-2-iron-and-lightning.en.md)）—— 1837 年到 2019 年：从 Morse 到 OpenTelemetry
+- **卷三 · [分叉与回响](drafts/wechat-epic-3-divergence-and-echo.zh.md)**（[English](drafts/wechat-epic-3-divergence-and-echo.en.md)）—— 2013 年至今：现代中美分叉，以及 `tsdb-operator` 在其中的位置
+
 ## 许可证
 
 Apache 2.0
