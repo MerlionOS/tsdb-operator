@@ -1,5 +1,7 @@
 # 可观测性史诗 · 卷二：铁与电
 
+> English: [wechat-epic-2-iron-and-lightning.en.md](./wechat-epic-2-iron-and-lightning.en.md)
+
 > 从 1844 年巴尔的摩一条电报线里跳出来的 30 个字母，
 > 到 2012 年柏林一个工程师推到 GitHub 上的第一个 commit ——
 > 这是一百八十年里，人类把"看见远方"的工具，

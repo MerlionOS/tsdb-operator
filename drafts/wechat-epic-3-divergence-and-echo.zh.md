@@ -1,5 +1,7 @@
 # 可观测性史诗 · 卷三：分叉与回响
 
+> English: [wechat-epic-3-divergence-and-echo.en.md](./wechat-epic-3-divergence-and-echo.en.md)
+
 > 三千年前，东方选择了钦天监，西方选择了 Panopticon。
 > 三千年后，故事重演。
 > 而我写了一个小小的 Operator —— 算是给一个古老问题添的一行
@@ -387,3 +389,9 @@ Prometheus 集群别挂，每一次变更都有记录（像起居注那样），
 - **卷一 · [烽火与眼睛](./wechat-epic-1-flame-and-eyes.zh.md)** —— 公元前 771 年到 1858 年：东方的钦天监路径 vs 西方的 Nightingale 路径
 - **卷二 · [铁与电](./wechat-epic-2-iron-and-lightning.zh.md)** —— 1837 年到 2019 年：从 Morse 到 OpenTelemetry
 - **卷三 · 分叉与回响**（本卷）—— 2013 年至今：现代中美分叉，与它三千年前的回声
+
+### English Editions
+
+- **Book I · [The Flame and the Eyes](./wechat-epic-1-flame-and-eyes.en.md)**
+- **Book II · [Iron and Lightning](./wechat-epic-2-iron-and-lightning.en.md)**
+- **Book III · [The Divergence and the Echo](./wechat-epic-3-divergence-and-echo.en.md)**

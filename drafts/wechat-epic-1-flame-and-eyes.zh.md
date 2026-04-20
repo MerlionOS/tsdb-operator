@@ -1,5 +1,7 @@
 # 可观测性史诗 · 卷一：烽火与眼睛
 
+> English: [wechat-epic-1-flame-and-eyes.en.md](./wechat-epic-1-flame-and-eyes.en.md)
+
 > 从公元前 771 年骊山山顶的一缕烟，
 > 到公元 1858 年克里米亚战场上的一张玫瑰图 ——
 > 这是人类用尽一切办法"看见远方"的两千年。
