@@ -13,6 +13,22 @@ StatefulSets, PVCs, headless services, health checks, snapshotting, off-cluster
 backups, and a record of who changed what. `tsdb-operator` turns that into a
 single declarative CRD (`PrometheusCluster`) and a small control plane.
 
+Concretely, pain point → mechanism:
+
+| Pain point | Without the operator | How tsdb-operator handles it |
+|------------|---------------------|-----------------------------|
+| One cluster = 4 resources to wire up | StatefulSet + PVC + Service + ConfigMap; easy to forget one on change | One `PrometheusCluster` spec; reconciler drives all dependents |
+| PVCs don't survive zone/cluster loss | DR is a manual `rsync` | Cron → admin snapshot → S3; `tsdb-ctl restore` pulls it back |
+| Replicas don't self-heal | Prometheus has no leader; a stuck pod stays stuck | HA loop probes `/-/ready`, deletes the pod so the StatefulSet rebuilds it |
+| "Who changed what, when?" | K8s Events have a TTL; history disappears | Postgres `audit_log` with retention + pruner |
+| No cross-namespace view | Clusters scattered across namespaces, listed by hand | `PrometheusClusterSet` (cluster-scoped), selects by label |
+| Bad spec only fails at reconcile time | `replicas: 0`, bad cron, empty URL break at runtime | Validating webhook rejects at `kubectl apply` time |
+| Custom scrape = hand-edit ConfigMap | One typo and the config reload fails | `spec.additionalScrapeConfigs`, merged by the operator |
+
+Out of scope: long-term storage and cross-cluster query — that's Thanos /
+VictoriaMetrics territory. See
+[`docs/COMPARISON.en.md`](docs/COMPARISON.en.md).
+
 ## Features
 
 **Cluster lifecycle**
@@ -80,6 +96,10 @@ single declarative CRD (`PrometheusCluster`) and a small control plane.
 > Broader TSDB landscape (Prometheus ecosystem + general-purpose TSDBs):
 > [`docs/TSDB-LANDSCAPE.en.md`](docs/TSDB-LANDSCAPE.en.md)
 > ([中文](docs/TSDB-LANDSCAPE.zh.md)).
+>
+> Mainland China observability landscape (Nightingale / DeepFlow / ARMS /
+> domestic TSDBs): [`docs/CHINA-LANDSCAPE.en.md`](docs/CHINA-LANDSCAPE.en.md)
+> ([中文](docs/CHINA-LANDSCAPE.zh.md)).
 >
 > Prometheus TSDB internals that informed this operator's design:
 > [`docs/TSDB-INTERNALS.en.md`](docs/TSDB-INTERNALS.en.md)

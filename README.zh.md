@@ -23,6 +23,10 @@ English: [README.md](README.md)
 > [`docs/TSDB-LANDSCAPE.zh.md`](docs/TSDB-LANDSCAPE.zh.md)
 > （[English](docs/TSDB-LANDSCAPE.en.md)）。
 >
+> 中国大陆可观测性生态（夜莺 / DeepFlow / ARMS / 国产 TSDB 等）：
+> [`docs/CHINA-LANDSCAPE.zh.md`](docs/CHINA-LANDSCAPE.zh.md)
+> （[English](docs/CHINA-LANDSCAPE.en.md)）。
+>
 > 影响这个 operator 设计的 Prometheus TSDB 内部原理：
 > [`docs/TSDB-INTERNALS.zh.md`](docs/TSDB-INTERNALS.zh.md)
 > （[English](docs/TSDB-INTERNALS.en.md)）。
@@ -41,6 +45,21 @@ English: [README.md](README.md)
 StatefulSet、PVC、Headless Service、健康检查、快照、异地备份、
 谁在什么时候改了什么。`tsdb-operator` 把这些统一封装成一个声明式的
 CRD (`PrometheusCluster`) 和一个小而清晰的控制面。
+
+具体到每一条痛点和对应做法：
+
+| 痛点 | 不用 operator 时 | 对应机制 |
+|------|-----------------|---------|
+| 一套集群要拼 4 个资源 | StatefulSet + PVC + Service + ConfigMap，改一个漏一个 | `PrometheusCluster` 一份 spec，所有从属资源自动下发 |
+| PVC 扛不住 zone / 集群丢失 | 灾难恢复只能手动 rsync | cron → admin snapshot → S3，`tsdb-ctl restore` 拉回 |
+| 副本坏了不自愈 | Prometheus 无 leader，坏 pod 会一直挂着 | HA 循环探 `/-/ready`，失败就删 pod 触发重建 |
+| 查不到"谁何时改了什么" | K8s Event 有 TTL，历史查不到 | Postgres `audit_log`，带 retention + pruner |
+| 跨 namespace 没有聚合视图 | 集群散在多个 namespace，要手动 list | `PrometheusClusterSet`（cluster-scoped），按 label 聚合 |
+| 坏 spec 到 reconcile 才暴露 | `replicas: 0`、错 cron、空 URL 都要运行时挂 | validating webhook 在 `kubectl apply` 时就拒绝 |
+| 改 scrape 要手改 ConfigMap | 手滑就 config reload 失败 | `spec.additionalScrapeConfigs`，operator 合并下发 |
+
+不做的事：长期存储、跨集群查询 —— 那是 Thanos / VictoriaMetrics
+的地盘，详见 [`docs/COMPARISON.zh.md`](docs/COMPARISON.zh.md)。
 
 ## 特性
 
